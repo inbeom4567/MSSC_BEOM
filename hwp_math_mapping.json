@@ -1,0 +1,720 @@
+{
+  "meta": {
+    "title": "고등수학 한글 수식 입력 매핑 사전",
+    "version": "1.0",
+    "description": "한글 프로그램 수식입력기용 코드 매핑. Claude Code에서 수학 풀이를 한글 수식 코드로 자동 변환할 때 사용."
+  },
+
+  "global_rules": {
+    "font_mode": {
+      "default": "italic",
+      "roman": "rm 입력 시 로마체로 전환. 도형의 점(A,B,C 등), 확률 P, 기댓값 E, 분산 V, 정규분포 N, 순열 P, 조합 C, 중복조합 H 등은 반드시 rm 사용",
+      "italic_restore": "it 입력 시 다시 이탤릭체로 전환",
+      "example": "rmP it left(A` right) → P는 로마체, 괄호 안 A 뒤 백틱"
+    },
+    "spacing": {
+      "backtick": "` 는 작은 띄어쓰기 (강제 공백)",
+      "tilde": "~ 는 큰 띄어쓰기. 백틱 4개와 동일",
+      "keyword_spacing": "le, ge, ne 등 키워드 앞뒤에 다른 문자가 오면 공백 필요. 예: x ge 3"
+    },
+    "brackets": {
+      "parenthesis": "left( ... right) 로 입력. 함수명과 left 사이 띄어쓰기 필요. 예: f left(x right)",
+      "curly_brace": "left{ ... right} 로 입력. 코드상 중괄호 {}와 구분",
+      "square_bracket": "left[` ... `right] 로 입력",
+      "absolute_value": "left|` ... `right| 로 입력"
+    },
+    "subscript_at_start": "수식 맨 앞에 아래첨자가 올 때 빈 중괄호 선행. 예: {}_{n}{rmC it}_{r}",
+    "roman_uppercase_with_bracket": "로마체 대문자 알파벳으로 수식이 끝나거나 괄호가 들어가는 경우 백틱 입력. 예: rmP it left(A` right)",
+    "line_break": "# 은 수식 내 줄바꿈. 구간별 정의 함수에서만 사용하고 나머지는 별도 수식으로 분리",
+    "korean_in_formula": "수식 내 한글이 필요한 경우 수식창과 한글창을 분리하여 입력"
+  },
+
+  "mappings": {
+    "1_basic_operations": {
+      "1_1_fractions": [
+        {
+          "math": "3/5",
+          "hwp": "{3} over {5}",
+          "note": ""
+        },
+        {
+          "math": "(2x+1)/(x-3)",
+          "hwp": "{2x+1} over {x-3}",
+          "note": ""
+        },
+        {
+          "math": "번분수 (1/2)/(3/4)",
+          "hwp": "{{1} over {2}} over {{3} over {4}}",
+          "note": "분자에 1/2 분모에 3/4"
+        }
+      ],
+
+      "1_2_exponents": [
+        {
+          "math": "x²",
+          "hwp": "x^{2}",
+          "note": ""
+        },
+        {
+          "math": "x^(n+1)",
+          "hwp": "x^{n+1}",
+          "note": ""
+        },
+        {
+          "math": "2^(3x-1)",
+          "hwp": "2^{3x-1}",
+          "note": ""
+        },
+        {
+          "math": "a^(2/3)",
+          "hwp": "a^{{2}over{3}}",
+          "note": "분수 지수"
+        },
+        {
+          "math": "x^(-2)",
+          "hwp": "x^{-2}",
+          "note": "음수 지수"
+        }
+      ],
+
+      "1_3_roots": [
+        {
+          "math": "√x",
+          "hwp": "sqrt{x}",
+          "note": ""
+        },
+        {
+          "math": "√(2x+1)",
+          "hwp": "sqrt{2x+1}",
+          "note": ""
+        },
+        {
+          "math": "³√x",
+          "hwp": "sqrt{3} of {x}",
+          "note": "세제곱근"
+        },
+        {
+          "math": "ⁿ√a",
+          "hwp": "sqrt{n} of {a}",
+          "note": "n제곱근"
+        },
+        {
+          "math": "√(a+√b)",
+          "hwp": "sqrt{a+ sqrt{b}}",
+          "note": "이중근호"
+        }
+      ],
+
+      "1_4_brackets": [
+        {
+          "math": "(a+b)",
+          "hwp": "left( a+b right)",
+          "note": "함수 f(x)의 경우 f와 left 사이 띄어쓰기 필요"
+        },
+        {
+          "math": "{a+b} (수학 표기)",
+          "hwp": "left{ a+b right}",
+          "note": "코드상 중괄호와 구분"
+        },
+        {
+          "math": "[a+b]",
+          "hwp": "left[` a+b `right]",
+          "note": ""
+        },
+        {
+          "math": "|x-3|",
+          "hwp": "left|`x-3`right|",
+          "note": ""
+        }
+      ]
+    },
+
+    "2_log_exponential": {
+      "2_1_logarithm": [
+        {
+          "math": "log x",
+          "hwp": "log`{x}",
+          "note": "상용로그"
+        },
+        {
+          "math": "log₃ x",
+          "hwp": "log_{3}`{x}",
+          "note": "밑이 3"
+        },
+        {
+          "math": "log_(√2) x",
+          "hwp": "log_{sqrt{2}}`{x}",
+          "note": "밑이 루트2"
+        },
+        {
+          "math": "log_(2/3) x",
+          "hwp": "log_{{2} over {3}}`x",
+          "note": "밑이 분수"
+        },
+        {
+          "math": "ln x",
+          "hwp": "ln`{x}",
+          "note": "자연로그"
+        },
+        {
+          "math": "log₃(2x+1)",
+          "hwp": "log_{3}`{left( 2x+1 right)}",
+          "note": "진수가 다항식"
+        },
+        {
+          "math": "log₃ x²",
+          "hwp": "log_{3}`{x^{2}}",
+          "note": ""
+        },
+        {
+          "math": "log₃ √x",
+          "hwp": "log_{3}`{sqrt{x}}",
+          "note": ""
+        },
+        {
+          "math": "log₃(x/a)",
+          "hwp": "log_{3}`{{x} over {a}}",
+          "note": ""
+        }
+      ],
+
+      "2_2_exponential": [
+        {
+          "math": "eˣ",
+          "hwp": "e^{x}",
+          "note": ""
+        },
+        {
+          "math": "e^(2x+1)",
+          "hwp": "e^{2x+1}",
+          "note": ""
+        },
+        {
+          "math": "3^(x²-1)",
+          "hwp": "3^{x^{2}-1}",
+          "note": ""
+        },
+        {
+          "math": "(1/2)^x",
+          "hwp": "left( {1} over {2} right)^{x}",
+          "note": ""
+        }
+      ]
+    },
+
+    "3_equation_inequality_symbols": [
+      {
+        "math": "≤",
+        "hwp": "le",
+        "note": "앞뒤에 다른 문자가 오면 공백 필요"
+      },
+      {
+        "math": "≥",
+        "hwp": "ge",
+        "note": "앞뒤에 다른 문자가 오면 공백 필요"
+      },
+      {
+        "math": "≠",
+        "hwp": "ne",
+        "note": ""
+      },
+      {
+        "math": "<",
+        "hwp": "<",
+        "note": ""
+      },
+      {
+        "math": ">",
+        "hwp": ">",
+        "note": ""
+      },
+      {
+        "math": "±",
+        "hwp": "+-",
+        "note": ""
+      },
+      {
+        "math": "∓",
+        "hwp": "-+",
+        "note": ""
+      }
+    ],
+
+    "4_functions": {
+      "4_1_basic": [
+        {
+          "math": "f(x)",
+          "hwp": "f left(x right)",
+          "note": ""
+        },
+        {
+          "math": "f(g(x))",
+          "hwp": "f left( g left(x right) right)",
+          "note": "합성함수"
+        },
+        {
+          "math": "f⁻¹(x)",
+          "hwp": "f^{`-1} left(x right)",
+          "note": "역함수"
+        },
+        {
+          "math": "f'(x)",
+          "hwp": "f`' left(x right)",
+          "note": "도함수"
+        }
+      ],
+
+      "4_2_trigonometric": [
+        {
+          "math": "sin x",
+          "hwp": "sin`x",
+          "note": ""
+        },
+        {
+          "math": "cos²θ",
+          "hwp": "cos^{2}`{theta}",
+          "note": ""
+        },
+        {
+          "math": "tan(π/4)",
+          "hwp": "tan`{{pi} over {4}}",
+          "note": ""
+        }
+      ],
+
+      "4_3_special": [
+        {
+          "math": "[x] 가우스",
+          "hwp": "left[`x`right]",
+          "note": "대괄호와 구분하지 않음"
+        },
+        {
+          "math": "|f(x)| 절댓값",
+          "hwp": "left|`f left(x)`right|",
+          "note": ""
+        }
+      ]
+    },
+
+    "5_sequences": {
+      "5_1_basic": [
+        {
+          "math": "aₙ",
+          "hwp": "a_{n}",
+          "note": ""
+        },
+        {
+          "math": "a_(n+1)",
+          "hwp": "a_{n+1}",
+          "note": ""
+        },
+        {
+          "math": "Sₙ",
+          "hwp": "S_{n}",
+          "note": "대문자 S"
+        },
+        {
+          "math": "···",
+          "hwp": "cdots",
+          "note": "말줄임 표기"
+        }
+      ],
+
+      "5_2_sigma": [
+        {
+          "math": "Σ(k=1~n) k",
+          "hwp": "sum_{k=1}^{n}{k}",
+          "note": ""
+        },
+        {
+          "math": "Σ(k=1~n) k²",
+          "hwp": "sum_{k=1}^{n}{k^{2}}",
+          "note": ""
+        },
+        {
+          "math": "Σ(k=1~n)(2k-1)",
+          "hwp": "sum_{k=1}^{n}{left( 2k-1 right)}",
+          "note": ""
+        },
+        {
+          "math": "이중 시그마",
+          "hwp": "sum_{k=1}^{n} left( sum_{l=1}^{k}{l^{2}} right)",
+          "note": ""
+        }
+      ],
+
+      "5_3_limit": [
+        {
+          "math": "lim(n→∞) aₙ",
+          "hwp": "lim_{n`->`inf}{a_{n}}",
+          "note": "-> 와 rarrow 동일"
+        },
+        {
+          "math": "lim(n→∞) Sₙ",
+          "hwp": "lim_{n`->`inf}{S_{n}}",
+          "note": ""
+        },
+        {
+          "math": "Σ(n=1~∞) aₙ",
+          "hwp": "sum_{n=1}^{inf}{a_{n}}",
+          "note": "무한급수"
+        }
+      ]
+    },
+
+    "6_calculus": {
+      "6_1_limits": [
+        {
+          "math": "lim(x→a) f(x)",
+          "hwp": "lim_{x`->`a}{f left(x right)}",
+          "note": ""
+        },
+        {
+          "math": "lim(x→0+) f(x)",
+          "hwp": "lim_{x`->`0+}{f left(x right)}",
+          "note": "우극한"
+        },
+        {
+          "math": "lim(x→0-) f(x)",
+          "hwp": "lim_{x`->`0-}{f left(x right)}",
+          "note": "좌극한"
+        },
+        {
+          "math": "lim(x→∞) f(x)",
+          "hwp": "lim_{x`->`inf}{f left(x right)}",
+          "note": ""
+        },
+        {
+          "math": "lim(h→0) {f(x+h)-f(x)}/h",
+          "hwp": "lim_{h`->`0}{{f left(x+h right) - f left(x right)} over {h}}",
+          "note": "미분 정의식"
+        }
+      ],
+
+      "6_2_derivative": [
+        {
+          "math": "dy/dx",
+          "hwp": "{dy} over {dx}",
+          "note": ""
+        },
+        {
+          "math": "d²y/dx²",
+          "hwp": "{d^{2}y} over {dx^{2}}",
+          "note": "이계도함수"
+        },
+        {
+          "math": "f'(x)",
+          "hwp": "f`' left(x right)",
+          "note": ""
+        },
+        {
+          "math": "f''(x)",
+          "hwp": "f`'' left(x right)",
+          "note": ""
+        },
+        {
+          "math": "d/dx f(x)",
+          "hwp": "{d} over {dx} f left(x right)",
+          "note": ""
+        }
+      ],
+
+      "6_3_integral": [
+        {
+          "math": "∫f(x)dx",
+          "hwp": "int f left(x right)`dx",
+          "note": "부정적분"
+        },
+        {
+          "math": "∫(a~b) f(x)dx",
+          "hwp": "int_{a}^{b} f left(x right)`dx",
+          "note": "정적분"
+        },
+        {
+          "math": "∫(0~1) x²dx",
+          "hwp": "int_{0}^{1} x^{2}`dx",
+          "note": ""
+        },
+        {
+          "math": "∫(a~b) |f(x)|dx",
+          "hwp": "int_{a}^{b} left|`f left(x right)`right|`dx",
+          "note": ""
+        }
+      ]
+    },
+
+    "7_geometry_vector": {
+      "7_1_lines_angles": [
+        {
+          "math": "선분 AB (위에 바)",
+          "hwp": "rm{bar{AB}}",
+          "note": "도형의 점은 반드시 rm으로 로마체"
+        },
+        {
+          "math": "선분 AB 길이 (바 없음)",
+          "hwp": "rm{AB}",
+          "note": ""
+        },
+        {
+          "math": "∠ABC",
+          "hwp": "rm{angle{ABC}}",
+          "note": ""
+        },
+        {
+          "math": "△ABC",
+          "hwp": "rm{triangle{ABC}}",
+          "note": ""
+        },
+        {
+          "math": "∠A = 90°",
+          "hwp": "rm{angle{A}} = 90 DEG",
+          "note": ""
+        },
+        {
+          "math": "호 AB",
+          "hwp": "rm{arch{`AB`}}",
+          "note": ""
+        }
+      ],
+
+      "7_2_vectors": [
+        {
+          "math": "벡터 a",
+          "hwp": "rm{vec{a}}",
+          "note": "화살표"
+        },
+        {
+          "math": "벡터 AB",
+          "hwp": "rm{vec{AB}}",
+          "note": ""
+        },
+        {
+          "math": "|벡터 a|",
+          "hwp": "left|`rm{vec{a}}`right|",
+          "note": "벡터의 크기"
+        },
+        {
+          "math": "벡터 a · 벡터 b",
+          "hwp": "rm{vec{a} cdot vec{b}}",
+          "note": "내적"
+        }
+      ],
+
+      "7_3_coordinates": [
+        {
+          "math": "점 P(a, b)",
+          "hwp": "rmP it left(a,~b right)",
+          "note": ""
+        },
+        {
+          "math": "y = mx + n",
+          "hwp": "y=mx+n",
+          "note": ""
+        },
+        {
+          "math": "x²+y²=r²",
+          "hwp": "x^{2}+y^{2}=r^{2}",
+          "note": ""
+        }
+      ]
+    },
+
+    "8_sets_propositions": [
+      {
+        "math": "∈",
+        "hwp": "in",
+        "note": ""
+      },
+      {
+        "math": "∉",
+        "hwp": "notin",
+        "note": ""
+      },
+      {
+        "math": "⊂",
+        "hwp": "subset",
+        "note": ""
+      },
+      {
+        "math": "∪",
+        "hwp": "cup",
+        "note": ""
+      },
+      {
+        "math": "∩",
+        "hwp": "cap",
+        "note": ""
+      },
+      {
+        "math": "Aᶜ 여집합",
+        "hwp": "A^{C}",
+        "note": ""
+      },
+      {
+        "math": "∅",
+        "hwp": "emptyset",
+        "note": ""
+      },
+      {
+        "math": "n(A)",
+        "hwp": "n left(A right)",
+        "note": ""
+      },
+      {
+        "math": "{x | 조건}",
+        "hwp": "left{`x`right| 조건 `right}",
+        "note": "조건 부분에 한글이 있으면 수식창과 한글창 분리"
+      },
+      {
+        "math": "⇒",
+        "hwp": "RARROW",
+        "note": "대문자 필수"
+      },
+      {
+        "math": "⇔",
+        "hwp": "LRARROW",
+        "note": "대문자 필수"
+      }
+    ],
+
+    "9_probability_statistics": {
+      "9_1_permutation_combination": [
+        {
+          "math": "n!",
+          "hwp": "n!",
+          "note": ""
+        },
+        {
+          "math": "ₙPᵣ",
+          "hwp": "_{n}{rmP it}_{r}",
+          "note": "맨 앞일 때: {}_{n}{rmP it}_{r}"
+        },
+        {
+          "math": "ₙCᵣ",
+          "hwp": "_{n}{rmC it}_{r}",
+          "note": "맨 앞일 때: {}_{n}{rmC it}_{r}"
+        },
+        {
+          "math": "ₙHᵣ",
+          "hwp": "_{n}{rmH it}_{r}",
+          "note": "맨 앞일 때: {}_{n}{rmH it}_{r}"
+        }
+      ],
+
+      "9_2_probability": [
+        {
+          "math": "P(A)",
+          "hwp": "rmP it left(A` right)",
+          "note": "로마체 대문자 뒤 백틱 필요"
+        },
+        {
+          "math": "P(A∩B)",
+          "hwp": "rmP it left(A cap B` right)",
+          "note": ""
+        },
+        {
+          "math": "P(A|B)",
+          "hwp": "rmP it left(A`left|`B`right)",
+          "note": "조건부 확률"
+        },
+        {
+          "math": "P(Aᶜ)",
+          "hwp": "rmP it left(A^{C} right)",
+          "note": "여사건"
+        }
+      ],
+
+      "9_3_statistics": [
+        {
+          "math": "x̄ (평균)",
+          "hwp": "{bar{X`}}",
+          "note": ""
+        },
+        {
+          "math": "σ²",
+          "hwp": "sigma^{2}",
+          "note": ""
+        },
+        {
+          "math": "σ",
+          "hwp": "sigma",
+          "note": ""
+        },
+        {
+          "math": "E(X)",
+          "hwp": "rmE it left(X` right)",
+          "note": ""
+        },
+        {
+          "math": "V(X)",
+          "hwp": "rmV it left(X`right)",
+          "note": ""
+        },
+        {
+          "math": "N(m, σ²)",
+          "hwp": "rmN it left(m,~sigma^{2} right)",
+          "note": "정규분포"
+        },
+        {
+          "math": "P(Z≤z)",
+          "hwp": "rmP it left(Z le z right)",
+          "note": ""
+        }
+      ]
+    },
+
+    "10_misc": [
+      {
+        "math": "··· (가운데 점)",
+        "hwp": "cdots",
+        "note": ""
+      },
+      {
+        "math": "⋮ (세로 점)",
+        "hwp": "vdots",
+        "note": ""
+      },
+      {
+        "math": "π",
+        "hwp": "pi",
+        "note": ""
+      },
+      {
+        "math": "∞",
+        "hwp": "inf",
+        "note": ""
+      },
+      {
+        "math": "∴",
+        "hwp": "therefore~",
+        "note": ""
+      },
+      {
+        "math": "∵",
+        "hwp": "because~",
+        "note": ""
+      },
+      {
+        "math": "≡ (합동)",
+        "hwp": "==",
+        "note": ""
+      },
+      {
+        "math": "∼ (닮음)",
+        "hwp": "sim",
+        "note": ""
+      },
+      {
+        "math": "→",
+        "hwp": "->",
+        "alt": "rarrow",
+        "note": ""
+      },
+      {
+        "math": "aₙ²",
+        "hwp": "a_{n}^{``2}",
+        "note": "위첨자+아래첨자 동시"
+      }
+    ]
+  }
+}
