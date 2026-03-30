@@ -6,3 +6,4 @@ __pycache__/
 .vite/
 docs/.pdca-status.json
 docs/.bkit-memory.json
+backend/history/

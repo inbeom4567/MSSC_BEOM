@@ -7,6 +7,7 @@ from typing import List
 from pathlib import Path
 
 from services.claude_service import ClaudeService
+from services import history_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,14 +38,23 @@ async def health_check():
 
 @app.post("/api/generate")
 async def generate_variant(files: List[UploadFile] = File(...), variant_type: str = "idea", difficulty: str = "similar", model: str = "sonnet"):
-    """유사문항 생성 (문제+해설 이미지 → 변형문제+풀이)"""
-    logger.info(f"유사문항 생성 요청: type={variant_type}, difficulty={difficulty}, model={model}, 이미지 {len(files)}개")
+    logger.info(f"유사문항 생성 요청: type={variant_type}, difficulty={difficulty}, model={model}")
     images = _parse_files(await _read_files(files))
 
     try:
         data = await claude_service.generate_variant(images, variant_type, difficulty, model)
-        logger.info(f"유사문항 생성 완료: {data['usage']['total_tokens']} tokens, ${data['usage']['cost_usd']}")
-        return {"result": data["text"], "usage": data["usage"]}
+        logger.info(f"유사문항 생성 완료: {data['usage']['total_tokens']} tokens")
+
+        entry_id = history_service.save_history({
+            "type": "generate",
+            "variant_type": variant_type,
+            "difficulty": difficulty,
+            "model": model,
+            "result": data["text"],
+            "usage": data["usage"],
+        })
+
+        return {"result": data["text"], "usage": data["usage"], "history_id": entry_id}
     except Exception as e:
         logger.error(f"유사문항 생성 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -52,24 +62,48 @@ async def generate_variant(files: List[UploadFile] = File(...), variant_type: st
 
 @app.post("/api/solve-variant")
 async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonnet"):
-    """변형문항 풀이 생성 (문제+해설+변형문항 이미지 → 풀이)"""
-    logger.info(f"변형문항 풀이 요청: model={model}, 이미지 {len(files)}개")
+    logger.info(f"변형문항 풀이 요청: model={model}")
     images = _parse_files(await _read_files(files))
 
     try:
         data = await claude_service.solve_variant(images, model)
-        logger.info(f"변형문항 풀이 완료: {data['usage']['total_tokens']} tokens, ${data['usage']['cost_usd']}")
-        return {"result": data["text"], "usage": data["usage"]}
+        logger.info(f"변형문항 풀이 완료: {data['usage']['total_tokens']} tokens")
+
+        entry_id = history_service.save_history({
+            "type": "solve",
+            "model": model,
+            "result": data["text"],
+            "usage": data["usage"],
+        })
+
+        return {"result": data["text"], "usage": data["usage"], "history_id": entry_id}
     except Exception as e:
         logger.error(f"변형문항 풀이 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/history")
+async def get_history():
+    return {"items": history_service.get_history_list()}
+
+
+@app.get("/api/history/{entry_id}")
+async def get_history_detail(entry_id: str):
+    detail = history_service.get_history_detail(entry_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="히스토리를 찾을 수 없습니다.")
+    return detail
+
+
+@app.delete("/api/history/{entry_id}")
+async def delete_history(entry_id: str):
+    history_service.delete_history(entry_id)
+    return {"message": "삭제되었습니다."}
+
+
 @app.post("/api/prompt-feedback")
 async def update_prompt(req: PromptFeedbackRequest):
-    """프롬프트에 피드백 규칙 추가"""
     logger.info(f"프롬프트 피드백: {req.feedback[:50]}...")
-
     result = await claude_service.process_feedback(req.feedback)
 
     for filename in ["solve_prompt.txt", "variant_solve_prompt.txt"]:
@@ -86,7 +120,6 @@ async def update_prompt(req: PromptFeedbackRequest):
         prompt_path.write_text(updated, encoding="utf-8")
 
     claude_service.reload_prompts()
-    logger.info("프롬프트 업데이트 완료")
     return {"result": result, "message": "프롬프트에 규칙이 추가되었습니다."}
 
 
