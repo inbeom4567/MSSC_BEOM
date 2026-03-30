@@ -26,24 +26,6 @@ app.add_middleware(
 claude_service = ClaudeService()
 
 
-class GenerateRequest(BaseModel):
-    problem_base64: str
-    problem_media_type: str
-    solution_base64: str
-    solution_media_type: str
-    variant_type: str = "idea"       # "number" | "idea"
-    difficulty: str = "similar"      # "easier" | "similar" | "harder"
-
-
-class VariantSolveRequest(BaseModel):
-    problem_base64: str
-    problem_media_type: str
-    solution_base64: str
-    solution_media_type: str
-    variant_base64: str
-    variant_media_type: str
-
-
 class PromptFeedbackRequest(BaseModel):
     feedback: str
 
@@ -53,37 +35,34 @@ async def health_check():
     return {"status": "ok"}
 
 
-@app.post("/api/verify")
-async def verify_problem(files: List[UploadFile] = File(...)):
-    """원본 문제+해설 검증만 수행"""
-    logger.info(f"검증 요청: 이미지 {len(files)}개")
-    images = _parse_files(await _read_files(files))
-
-    result = await claude_service.verify(images)
-    logger.info("검증 완료")
-    return {"result": result}
-
-
 @app.post("/api/generate")
-async def generate_variant(files: List[UploadFile] = File(...), variant_type: str = "idea", difficulty: str = "similar"):
-    """유사문항 생성 (검증 후)"""
-    logger.info(f"유사문항 생성 요청: type={variant_type}, difficulty={difficulty}")
+async def generate_variant(files: List[UploadFile] = File(...), variant_type: str = "idea", difficulty: str = "similar", model: str = "sonnet"):
+    """유사문항 생성 (문제+해설 이미지 → 변형문제+풀이)"""
+    logger.info(f"유사문항 생성 요청: type={variant_type}, difficulty={difficulty}, model={model}, 이미지 {len(files)}개")
     images = _parse_files(await _read_files(files))
 
-    result = await claude_service.generate_variant(images, variant_type, difficulty)
-    logger.info("유사문항 생성 완료")
-    return {"result": result}
+    try:
+        data = await claude_service.generate_variant(images, variant_type, difficulty, model)
+        logger.info(f"유사문항 생성 완료: {data['usage']['total_tokens']} tokens, ${data['usage']['cost_usd']}")
+        return {"result": data["text"], "usage": data["usage"]}
+    except Exception as e:
+        logger.error(f"유사문항 생성 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/solve-variant")
-async def solve_variant(files: List[UploadFile] = File(...)):
-    """변형문항 풀이 생성 (이미지 3개: 문제+해설+변형문항)"""
-    logger.info(f"변형문항 풀이 요청: 이미지 {len(files)}개")
+async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonnet"):
+    """변형문항 풀이 생성 (문제+해설+변형문항 이미지 → 풀이)"""
+    logger.info(f"변형문항 풀이 요청: model={model}, 이미지 {len(files)}개")
     images = _parse_files(await _read_files(files))
 
-    result = await claude_service.solve_variant(images)
-    logger.info("변형문항 풀이 완료")
-    return {"result": result}
+    try:
+        data = await claude_service.solve_variant(images, model)
+        logger.info(f"변형문항 풀이 완료: {data['usage']['total_tokens']} tokens, ${data['usage']['cost_usd']}")
+        return {"result": data["text"], "usage": data["usage"]}
+    except Exception as e:
+        logger.error(f"변형문항 풀이 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/prompt-feedback")
@@ -93,43 +72,22 @@ async def update_prompt(req: PromptFeedbackRequest):
 
     result = await claude_service.process_feedback(req.feedback)
 
-    # solve_prompt.txt에 규칙 추가
-    prompt_path = PROMPTS_DIR / "solve_prompt.txt"
-    current = prompt_path.read_text(encoding="utf-8")
-
-    # 마지막 강조 섹션 앞에 규칙 삽입
-    marker = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n## ★ 다시 한번 강조"
-    if marker in current:
+    for filename in ["solve_prompt.txt", "variant_solve_prompt.txt"]:
+        prompt_path = PROMPTS_DIR / filename
+        if not prompt_path.exists():
+            continue
+        current = prompt_path.read_text(encoding="utf-8")
+        marker = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n## ★ 다시 한번 강조"
         new_rule = f"\n### 사용자 피드백 규칙:\n{result}\n\n"
-        updated = current.replace(marker, new_rule + marker)
-    else:
-        updated = current + f"\n\n### 사용자 피드백 규칙:\n{result}\n"
-
-    prompt_path.write_text(updated, encoding="utf-8")
-
-    # variant_solve_prompt.txt에도 동일 추가
-    variant_path = PROMPTS_DIR / "variant_solve_prompt.txt"
-    if variant_path.exists():
-        v_current = variant_path.read_text(encoding="utf-8")
-        v_marker = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n## ★ 다시 한번 강조"
-        if v_marker in v_current:
-            v_updated = v_current.replace(v_marker, new_rule + v_marker)
+        if marker in current:
+            updated = current.replace(marker, new_rule + marker)
         else:
-            v_updated = v_current + f"\n\n### 사용자 피드백 규칙:\n{result}\n"
-        variant_path.write_text(v_updated, encoding="utf-8")
+            updated = current + f"\n\n### 사용자 피드백 규칙:\n{result}\n"
+        prompt_path.write_text(updated, encoding="utf-8")
 
-    # 프롬프트 다시 로드
     claude_service.reload_prompts()
-
     logger.info("프롬프트 업데이트 완료")
     return {"result": result, "message": "프롬프트에 규칙이 추가되었습니다."}
-
-
-@app.get("/api/prompt")
-async def get_prompt():
-    """현재 프롬프트 내용 조회"""
-    prompt_path = PROMPTS_DIR / "solve_prompt.txt"
-    return {"prompt": prompt_path.read_text(encoding="utf-8")}
 
 
 async def _read_files(files: List[UploadFile]) -> list:
@@ -141,7 +99,6 @@ async def _read_files(files: List[UploadFile]) -> list:
 
 
 def _parse_files(files: list) -> list:
-    import base64
     images = []
     for f in files:
         images.append({

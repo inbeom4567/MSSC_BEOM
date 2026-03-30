@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import ImageUploadBox from './ImageUploadBox'
 import SolutionDisplay from './SolutionDisplay'
+import UsageInfo from './UsageInfo'
 
 const API = 'http://localhost:8001'
 
@@ -13,12 +14,10 @@ export default function TabSolveVariant() {
   const [variantFile, setVariantFile] = useState(null)
   const [dragging, setDragging] = useState(null)
 
-  const [verifyResult, setVerifyResult] = useState(null)
-  const [isVerifying, setIsVerifying] = useState(false)
-
-  const [solveResult, setSolveResult] = useState(null)
-  const [isSolving, setIsSolving] = useState(false)
-
+  const [model, setModel] = useState('sonnet')
+  const [result, setResult] = useState(null)
+  const [usage, setUsage] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const handleFile = useCallback((f, type) => {
@@ -32,7 +31,7 @@ export default function TabSolveVariant() {
       setVariantFile(f); reader.onload = (e) => setVariantPreview(e.target.result)
     }
     reader.readAsDataURL(f)
-    setVerifyResult(null); setSolveResult(null)
+    setResult(null)
   }, [])
 
   const handlePaste = useCallback((e) => {
@@ -51,36 +50,23 @@ export default function TabSolveVariant() {
     setProblemPreview(null); setProblemFile(null)
     setSolutionPreview(null); setSolutionFile(null)
     setVariantPreview(null); setVariantFile(null)
-    setVerifyResult(null); setSolveResult(null); setError(null)
-  }
-
-  const handleVerify = async () => {
-    setIsVerifying(true); setError(null); setVerifyResult(null)
-    try {
-      const formData = new FormData()
-      formData.append('files', problemFile)
-      formData.append('files', solutionFile)
-      const res = await fetch(`${API}/api/verify`, { method: 'POST', body: formData })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || '검증 실패')
-      const data = await res.json()
-      setVerifyResult(data.result)
-    } catch (err) { setError(err.message) }
-    finally { setIsVerifying(false) }
+    setResult(null); setError(null)
   }
 
   const handleSolve = async () => {
-    setIsSolving(true); setError(null); setSolveResult(null)
+    setIsLoading(true); setError(null); setResult(null)
     try {
       const formData = new FormData()
       formData.append('files', problemFile)
       formData.append('files', solutionFile)
       formData.append('files', variantFile)
-      const res = await fetch(`${API}/api/solve-variant`, { method: 'POST', body: formData })
+      const res = await fetch(`${API}/api/solve-variant?model=${model}`, { method: 'POST', body: formData })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || '풀이 생성 실패')
       const data = await res.json()
-      setSolveResult(data.result)
+      setResult(data.result)
+      setUsage(data.usage)
     } catch (err) { setError(err.message) }
-    finally { setIsSolving(false) }
+    finally { setIsLoading(false) }
   }
 
   const ready = problemFile && solutionFile && variantFile
@@ -109,49 +95,44 @@ export default function TabSolveVariant() {
       </div>
 
       {ready && (
+        <div className="space-y-3">
+        <div className="flex items-center gap-3 justify-center">
+          <span className="text-sm font-medium text-gray-600">모델:</span>
+          <button onClick={() => setModel('sonnet')}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${model === 'sonnet' ? 'bg-sky-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            Sonnet (빠름, ~100원)</button>
+          <button onClick={() => setModel('opus')}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${model === 'opus' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            Opus (고품질, ~500원)</button>
+        </div>
         <div className="flex gap-3 justify-center">
-          <button onClick={handleVerify} disabled={isVerifying || isSolving}
-            className="px-5 py-2 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors">
-            {isVerifying ? '검증 중...' : '1단계: 검증'}
+          <button onClick={handleSolve} disabled={isLoading}
+            className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+            {isLoading ? '해설 작성 중... (30초~1분)' : '해설 작성'}
           </button>
           <button onClick={handleReset}
-            className="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+            className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
             초기화
           </button>
+        </div>
         </div>
       )}
 
       {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
 
-      {isVerifying && (
-        <div className="text-center py-4">
-          <div className="inline-block w-6 h-6 border-3 border-amber-200 border-t-amber-500 rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm mt-2">검증 중... (Sonnet)</p>
+      {isLoading && (
+        <div className="text-center py-6">
+          <div className="inline-block w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
+          <p className="text-gray-500 text-sm mt-3">원본 해설 방향 그대로 변형문항 풀이 작성 중...</p>
         </div>
       )}
 
-      {verifyResult && (
-        <div className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-          <h3 className="font-bold text-gray-800 mb-2">검증 결과</h3>
-          <p className="text-gray-700 whitespace-pre-wrap">{verifyResult}</p>
-        </div>
+      {result && (
+        <>
+          <SolutionDisplay solution={result} title="변형문항 풀이" />
+          <UsageInfo usage={usage} />
+        </>
       )}
-
-      {verifyResult && (
-        <button onClick={handleSolve} disabled={isSolving}
-          className="w-full py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
-          {isSolving ? '해설 작성 중... (Opus, 1~2분 소요)' : '2단계: 해설 작성'}
-        </button>
-      )}
-
-      {isSolving && (
-        <div className="text-center py-4">
-          <div className="inline-block w-6 h-6 border-3 border-green-200 border-t-green-600 rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm mt-2">Opus 모델로 해설 작성 중...</p>
-        </div>
-      )}
-
-      {solveResult && <SolutionDisplay solution={solveResult} title="변형문항 풀이" />}
     </div>
   )
 }
