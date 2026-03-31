@@ -60,6 +60,12 @@ Frontend (React+Vite:5173) → Direct HTTP → Backend (FastAPI:8001) → Anthro
 
 Claude 출력에서 수식은 `[한글수식코드]` 형태. 프론트엔드 `SolutionDisplay.jsx`가 `[...]`를 파싱하여 클릭 복사 가능한 `[수식]` 버튼으로 렌더링.
 
+## Hooks (자동 문법 검사)
+
+`.claude/settings.json`에 PostToolUse hook이 설정되어 있음:
+- Python 파일(.py) 수정/생성 시 자동으로 `py_compile` 실행
+- 문법 에러가 있으면 즉시 감지됨
+
 ## Critical Rules
 
 - **포트**: 백엔드 8001 (8000 아님, 좀비 프로세스 이슈)

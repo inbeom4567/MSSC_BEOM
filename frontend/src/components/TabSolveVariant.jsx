@@ -16,6 +16,7 @@ export default function TabSolveVariant() {
 
   const [model, setModel] = useState('sonnet')
   const [result, setResult] = useState(null)
+  const [graphs, setGraphs] = useState([])
   const [usage, setUsage] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -64,6 +65,7 @@ export default function TabSolveVariant() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || '풀이 생성 실패')
       const data = await res.json()
       setResult(data.result)
+      setGraphs(data.graphs || [])
       setUsage(data.usage)
     } catch (err) { setError(err.message) }
     finally { setIsLoading(false) }
@@ -129,7 +131,7 @@ export default function TabSolveVariant() {
 
       {result && (
         <>
-          <SolutionDisplay solution={result} title="변형문항 풀이" />
+          <SolutionDisplay solution={result} graphs={graphs} title="변형문항 풀이" />
           <UsageInfo usage={usage} />
         </>
       )}

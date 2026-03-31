@@ -1,24 +1,30 @@
 import { useState } from 'react'
 import HwpCodeBlock from './HwpCodeBlock'
+import GraphImage from './GraphImage'
 
 function parseSolution(text) {
   const parts = []
+  // [수식] 또는 [GRAPH:N] 패턴 매칭
   const regex = /\[([^\]]+)\]/g
   let lastIndex = 0
   let match
 
   while ((match = regex.exec(text)) !== null) {
-    // 대괄호 앞의 일반 텍스트
     if (match.index > lastIndex) {
       parts.push({ type: 'text', content: text.slice(lastIndex, match.index) })
     }
 
-    parts.push({ type: 'formula', content: match[1] })
+    const inner = match[1]
+    if (inner.startsWith('GRAPH:')) {
+      const graphIdx = parseInt(inner.split(':')[1], 10)
+      parts.push({ type: 'graph', index: graphIdx })
+    } else {
+      parts.push({ type: 'formula', content: inner })
+    }
 
     lastIndex = regex.lastIndex
   }
 
-  // 남은 텍스트
   if (lastIndex < text.length) {
     parts.push({ type: 'text', content: text.slice(lastIndex) })
   }
@@ -26,7 +32,7 @@ function parseSolution(text) {
   return parts
 }
 
-export default function SolutionDisplay({ solution, title = '풀이' }) {
+export default function SolutionDisplay({ solution, graphs = [], title = '풀이' }) {
   const [fullCopied, setFullCopied] = useState(false)
   const [listCopied, setListCopied] = useState(false)
 
@@ -36,7 +42,6 @@ export default function SolutionDisplay({ solution, title = '풀이' }) {
   const formulas = parts.filter(p => p.type === 'formula')
 
   const handleFullCopy = () => {
-    // 원본 텍스트 그대로 복사 (수식은 [코드] 형태 유지)
     navigator.clipboard.writeText(solution)
     setFullCopied(true)
     setTimeout(() => setFullCopied(false), 1500)
@@ -54,16 +59,12 @@ export default function SolutionDisplay({ solution, title = '풀이' }) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-gray-800">{title}</h2>
         <div className="flex gap-2">
-          <button
-            onClick={handleListCopy}
-            className="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-          >
+          <button onClick={handleListCopy}
+            className="px-3 py-1.5 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors">
             {listCopied ? '✓ 복사됨' : '수식 목록 복사'}
           </button>
-          <button
-            onClick={handleFullCopy}
-            className="px-3 py-1.5 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-          >
+          <button onClick={handleFullCopy}
+            className="px-3 py-1.5 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors">
             {fullCopied ? '✓ 복사됨' : '전체 복사'}
           </button>
         </div>
@@ -71,6 +72,9 @@ export default function SolutionDisplay({ solution, title = '풀이' }) {
 
       <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
         {parts.map((part, i) => {
+          if (part.type === 'graph' && graphs[part.index]) {
+            return <GraphImage key={i} base64Data={graphs[part.index]} index={part.index} />
+          }
           if (part.type === 'formula') {
             return <HwpCodeBlock key={i} code={part.content} inline />
           }

@@ -54,7 +54,7 @@ async def generate_variant(files: List[UploadFile] = File(...), variant_type: st
             "usage": data["usage"],
         })
 
-        return {"result": data["text"], "usage": data["usage"], "history_id": entry_id}
+        return {"result": data["text"], "graphs": data.get("graphs", []), "usage": data["usage"], "history_id": entry_id}
     except Exception as e:
         logger.error(f"유사문항 생성 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -76,7 +76,7 @@ async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonne
             "usage": data["usage"],
         })
 
-        return {"result": data["text"], "usage": data["usage"], "history_id": entry_id}
+        return {"result": data["text"], "graphs": data.get("graphs", []), "usage": data["usage"], "history_id": entry_id}
     except Exception as e:
         logger.error(f"변형문항 풀이 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))

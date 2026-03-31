@@ -30,6 +30,7 @@ export default function TabCreateVariant() {
   const [difficulty, setDifficulty] = useState('similar')
   const [model, setModel] = useState('sonnet')
   const [result, setResult] = useState(null)
+  const [graphs, setGraphs] = useState([])
   const [usage, setUsage] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -75,6 +76,7 @@ export default function TabCreateVariant() {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || '생성 실패')
       const data = await res.json()
       setResult(data.result)
+      setGraphs(data.graphs || [])
       setUsage(data.usage)
     } catch (err) { setError(err.message) }
     finally { setIsLoading(false) }
@@ -152,7 +154,7 @@ export default function TabCreateVariant() {
 
       {result && (
         <>
-          <SolutionDisplay solution={result} title="유사문항 & 풀이" />
+          <SolutionDisplay solution={result} graphs={graphs} title="유사문항 & 풀이" />
           <UsageInfo usage={usage} />
         </>
       )}

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import anthropic
 from dotenv import load_dotenv
+from services.graph_service import process_graphs_in_text
 
 load_dotenv()
 
@@ -129,8 +130,11 @@ class ClaudeService:
             system=self.solve_prompt,
             messages=[{"role": "user", "content": content}],
         )
+        text = message.content[0].text
+        processed_text, graphs = process_graphs_in_text(text)
         return {
-            "text": message.content[0].text,
+            "text": processed_text,
+            "graphs": graphs,
             "usage": _make_usage_info(message, model_id),
         }
 
@@ -151,8 +155,11 @@ class ClaudeService:
             system=self.variant_solve_prompt,
             messages=[{"role": "user", "content": content}],
         )
+        text = message.content[0].text
+        processed_text, graphs = process_graphs_in_text(text)
         return {
-            "text": message.content[0].text,
+            "text": processed_text,
+            "graphs": graphs,
             "usage": _make_usage_info(message, model_id),
         }
 
