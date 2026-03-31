@@ -29,11 +29,16 @@ export default function TabCreateVariant() {
   const [variantType, setVariantType] = useState('idea')
   const [difficulty, setDifficulty] = useState('similar')
   const [model, setModel] = useState('sonnet')
+  const [customPrompt, setCustomPrompt] = useState('')
   const [result, setResult] = useState(null)
   const [graphs, setGraphs] = useState([])
   const [usage, setUsage] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // 수정 요청 상태
+  const [refineText, setRefineText] = useState('')
+  const [isRefining, setIsRefining] = useState(false)
 
   const handleFile = useCallback((f, type) => {
     if (!f || !f.type.startsWith('image/')) return
@@ -61,7 +66,8 @@ export default function TabCreateVariant() {
   const handleReset = () => {
     setProblemPreview(null); setProblemFile(null)
     setSolutionPreview(null); setSolutionFile(null)
-    setResult(null); setError(null)
+    setResult(null); setGraphs([]); setUsage(null); setError(null)
+    setRefineText('')
   }
 
   const handleGenerate = async () => {
@@ -70,9 +76,10 @@ export default function TabCreateVariant() {
       const formData = new FormData()
       formData.append('files', problemFile)
       formData.append('files', solutionFile)
-      const res = await fetch(`${API}/api/generate?variant_type=${variantType}&difficulty=${difficulty}&model=${model}`, {
-        method: 'POST', body: formData,
-      })
+      const params = new URLSearchParams({ variant_type: variantType, difficulty, model })
+      if (customPrompt.trim()) params.set('custom_prompt', customPrompt.trim())
+
+      const res = await fetch(`${API}/api/generate?${params}`, { method: 'POST', body: formData })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || '생성 실패')
       const data = await res.json()
       setResult(data.result)
@@ -80,6 +87,25 @@ export default function TabCreateVariant() {
       setUsage(data.usage)
     } catch (err) { setError(err.message) }
     finally { setIsLoading(false) }
+  }
+
+  const handleRefine = async () => {
+    if (!refineText.trim() || !result) return
+    setIsRefining(true); setError(null)
+    try {
+      const res = await fetch(`${API}/api/refine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ original_result: result, instruction: refineText.trim(), model }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || '수정 실패')
+      const data = await res.json()
+      setResult(data.result)
+      setGraphs(data.graphs || [])
+      setUsage(data.usage)
+      setRefineText('')
+    } catch (err) { setError(err.message) }
+    finally { setIsRefining(false) }
   }
 
   const ready = problemFile && solutionFile
@@ -130,6 +156,19 @@ export default function TabCreateVariant() {
                 }`}>{m.label}</button>
             ))}
           </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-600 block mb-1">
+              문제 제작 지시사항 (선택):
+            </label>
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="예: 로그 밑을 3 대신 2로 바꿔서 만들어줘 / 조건에 절댓값을 추가해줘 / 답이 정수가 되도록 만들어줘"
+              className="w-full p-2.5 border border-blue-200 rounded-lg text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+            />
+          </div>
+
           <div className="flex gap-3">
             <button onClick={handleGenerate} disabled={isLoading}
               className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
@@ -156,6 +195,25 @@ export default function TabCreateVariant() {
         <>
           <SolutionDisplay solution={result} graphs={graphs} title="유사문항 & 풀이" />
           <UsageInfo usage={usage} />
+
+          {/* 수정 요청 영역 */}
+          <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
+            <label className="text-sm font-bold text-amber-800 block mb-2">
+              수정 요청
+            </label>
+            <div className="flex gap-2">
+              <textarea
+                value={refineText}
+                onChange={(e) => setRefineText(e.target.value)}
+                placeholder="예: 문제의 조건을 좀 더 단순하게 / 답을 78에서 다른 값으로 / 풀이 3단계를 더 자세하게"
+                className="flex-1 p-2.5 border border-amber-200 rounded-lg text-sm resize-none h-12 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+              />
+              <button onClick={handleRefine} disabled={isRefining || !refineText.trim()}
+                className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors whitespace-nowrap">
+                {isRefining ? '수정 중...' : '수정'}
+              </button>
+            </div>
+          </div>
         </>
       )}
     </div>

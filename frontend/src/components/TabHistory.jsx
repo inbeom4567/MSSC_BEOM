@@ -4,7 +4,7 @@ import UsageInfo from './UsageInfo'
 
 const API = 'http://localhost:8001'
 
-const TYPE_LABELS = { generate: '유사문항 생성', solve: '변형문항 풀이' }
+const TYPE_LABELS = { generate: '유사문항 생성', solve: '변형문항 풀이', refine: '수정' }
 const DIFF_LABELS = { easier: '더 쉽게', similar: '비슷하게', harder: '더 어렵게' }
 const VTYPE_LABELS = { number: '숫자 변형', idea: '아이디어 변형' }
 
@@ -101,6 +101,9 @@ export default function TabHistory() {
                     </button>
                   </div>
                 </div>
+                {item.custom_prompt && (
+                  <p className="text-xs text-amber-600 mt-1 truncate">지시: {item.custom_prompt}</p>
+                )}
                 <p className="text-sm text-gray-600 mt-1 truncate">{item.preview}</p>
                 {isCompareMode && selected?.id !== item.id && compareId !== item.id && (
                   <p className="text-xs text-blue-500 mt-1">클릭하여 비교</p>

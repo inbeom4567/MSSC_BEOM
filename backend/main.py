@@ -3,7 +3,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import base64
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
 from services.claude_service import ClaudeService
@@ -31,18 +31,30 @@ class PromptFeedbackRequest(BaseModel):
     feedback: str
 
 
+class RefineRequest(BaseModel):
+    original_result: str
+    instruction: str
+    model: str = "sonnet"
+
+
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
 
 
 @app.post("/api/generate")
-async def generate_variant(files: List[UploadFile] = File(...), variant_type: str = "idea", difficulty: str = "similar", model: str = "sonnet"):
-    logger.info(f"유사문항 생성 요청: type={variant_type}, difficulty={difficulty}, model={model}")
+async def generate_variant(
+    files: List[UploadFile] = File(...),
+    variant_type: str = "idea",
+    difficulty: str = "similar",
+    model: str = "sonnet",
+    custom_prompt: str = "",
+):
+    logger.info(f"유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}, custom={custom_prompt[:30] if custom_prompt else 'none'}")
     images = _parse_files(await _read_files(files))
 
     try:
-        data = await claude_service.generate_variant(images, variant_type, difficulty, model)
+        data = await claude_service.generate_variant(images, variant_type, difficulty, model, custom_prompt)
         logger.info(f"유사문항 생성 완료: {data['usage']['total_tokens']} tokens")
 
         entry_id = history_service.save_history({
@@ -50,6 +62,7 @@ async def generate_variant(files: List[UploadFile] = File(...), variant_type: st
             "variant_type": variant_type,
             "difficulty": difficulty,
             "model": model,
+            "custom_prompt": custom_prompt,
             "result": data["text"],
             "usage": data["usage"],
         })
@@ -79,6 +92,29 @@ async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonne
         return {"result": data["text"], "graphs": data.get("graphs", []), "usage": data["usage"], "history_id": entry_id}
     except Exception as e:
         logger.error(f"변형문항 풀이 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/refine")
+async def refine_result(req: RefineRequest):
+    """생성된 결과를 수정 요청"""
+    logger.info(f"수정 요청: {req.instruction[:50]}...")
+
+    try:
+        data = await claude_service.refine(req.original_result, req.instruction, req.model)
+        logger.info(f"수정 완료: {data['usage']['total_tokens']} tokens")
+
+        entry_id = history_service.save_history({
+            "type": "refine",
+            "model": req.model,
+            "custom_prompt": req.instruction,
+            "result": data["text"],
+            "usage": data["usage"],
+        })
+
+        return {"result": data["text"], "graphs": data.get("graphs", []), "usage": data["usage"], "history_id": entry_id}
+    except Exception as e:
+        logger.error(f"수정 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

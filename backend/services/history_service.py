@@ -26,10 +26,11 @@ def save_history(entry: dict) -> str:
     record = {
         "id": entry_id,
         "created_at": now,
-        "type": entry.get("type", "generate"),       # "generate" | "solve"
+        "type": entry.get("type", "generate"),       # "generate" | "solve" | "refine"
         "variant_type": entry.get("variant_type"),    # "number" | "idea"
         "difficulty": entry.get("difficulty"),         # "easier" | "similar" | "harder"
         "model": entry.get("model", "sonnet"),
+        "custom_prompt": entry.get("custom_prompt", ""),
         "result": entry.get("result", ""),
         "usage": entry.get("usage", {}),
     }
@@ -47,6 +48,7 @@ def save_history(entry: dict) -> str:
         "variant_type": record.get("variant_type"),
         "difficulty": record.get("difficulty"),
         "model": record["model"],
+        "custom_prompt": record.get("custom_prompt", ""),
         "cost_krw": record["usage"].get("cost_krw", 0),
         "preview": record["result"][:80] + "..." if len(record["result"]) > 80 else record["result"],
     }

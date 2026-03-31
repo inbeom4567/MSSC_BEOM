@@ -108,7 +108,7 @@ class ClaudeService:
     def _get_model(self, model: str) -> str:
         return self.MODELS.get(model, self.MODELS["sonnet"])
 
-    async def generate_variant(self, images: list[dict], variant_type: str, difficulty: str, model: str = "sonnet") -> dict:
+    async def generate_variant(self, images: list[dict], variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "") -> dict:
         """유사문항 생성 + 풀이"""
         content = self._make_image_content(images)
         model_id = self._get_model(model)
@@ -116,13 +116,16 @@ class ClaudeService:
         type_desc = "숫자와 조건의 값만 변경하는 숫자 변형" if variant_type == "number" else "문제의 구조나 아이디어를 변경하는 아이디어 변형"
         diff_desc = {"easier": "원본보다 쉬운", "similar": "원본과 비슷한", "harder": "원본보다 어려운"}.get(difficulty, "원본과 비슷한")
 
-        content.append({
-            "type": "text",
-            "text": f"첫 번째 이미지는 원본 문제, 두 번째는 원본 해설입니다. "
-                    f"원본 문제와 해설은 정확합니다. "
-                    f"{diff_desc} 난이도로 {type_desc}을 해주세요. "
-                    f"유사문항을 만들고 원본 해설과 동일한 풀이 흐름으로 풀이해주세요.",
-        })
+        user_text = (
+            f"첫 번째 이미지는 원본 문제, 두 번째는 원본 해설입니다. "
+            f"원본 문제와 해설은 정확합니다. "
+            f"{diff_desc} 난이도로 {type_desc}을 해주세요. "
+            f"유사문항을 만들고 원본 해설과 동일한 풀이 흐름으로 풀이해주세요."
+        )
+        if custom_prompt:
+            user_text += f"\n\n★ 추가 지시사항: {custom_prompt}"
+
+        content.append({"type": "text", "text": user_text})
 
         message = await self.client.messages.create(
             model=model_id,
@@ -154,6 +157,28 @@ class ClaudeService:
             max_tokens=4096,
             system=self.variant_solve_prompt,
             messages=[{"role": "user", "content": content}],
+        )
+        text = message.content[0].text
+        processed_text, graphs = process_graphs_in_text(text)
+        return {
+            "text": processed_text,
+            "graphs": graphs,
+            "usage": _make_usage_info(message, model_id),
+        }
+
+    async def refine(self, original_result: str, instruction: str, model: str = "sonnet") -> dict:
+        """생성된 결과를 수정"""
+        model_id = self._get_model(model)
+
+        message = await self.client.messages.create(
+            model=model_id,
+            max_tokens=4096,
+            system=self.solve_prompt,
+            messages=[
+                {"role": "user", "content": "아래 유사문항과 풀이를 생성했습니다:\n\n" + original_result},
+                {"role": "assistant", "content": "네, 확인했습니다."},
+                {"role": "user", "content": f"다음 지시에 따라 위 문제와 풀이를 수정해주세요:\n\n{instruction}\n\n수정된 전체 결과를 다시 출력해주세요. 기존 출력 형식(-유사문항-, -풀이-)을 유지하세요."},
+            ],
         )
         text = message.content[0].text
         processed_text, graphs = process_graphs_in_text(text)
