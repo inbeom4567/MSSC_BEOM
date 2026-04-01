@@ -9,7 +9,8 @@
       "Skill(bkit:pdca:*)",
       "Bash(ls -t *.json)",
       "Bash(python -c \"import sys,json; items=json.load\\(sys.stdin\\); [print\\(f\"\"{i[''''id'''']} | {i[''''type'''']} | {i[''''model'''']} | {i.get\\(''''custom_prompt'''',''''''''\\)} | {i[''''preview''''][:60]}\"\"\\) for i in items[:5]]\")",
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Read(//c/Users/tnaak/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\tnaak\\OneDrive\\바탕 화면\\MathSolution\\.claude"

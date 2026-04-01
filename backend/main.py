@@ -8,6 +8,8 @@ from pathlib import Path
 
 from services.claude_service import ClaudeService
 from services import history_service
+from services.hwpx_service import read_hwpx, create_hwpx
+from fastapi.responses import Response
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -135,6 +137,87 @@ async def get_history_detail(entry_id: str):
 async def delete_history(entry_id: str):
     history_service.delete_history(entry_id)
     return {"message": "삭제되었습니다."}
+
+
+@app.post("/api/hwpx-generate")
+async def hwpx_generate(
+    file: UploadFile = File(...),
+    variant_type: str = "idea",
+    difficulty: str = "similar",
+    model: str = "sonnet",
+    custom_prompt: str = "",
+):
+    """HWPX 파일로 유사문항 생성"""
+    logger.info(f"HWPX 유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}")
+
+    try:
+        file_bytes = await file.read()
+        text_content = read_hwpx(file_bytes)
+        logger.info(f"HWPX 파싱 완료: {len(text_content)}자")
+
+        data = await claude_service.generate_variant_from_text(text_content, variant_type, difficulty, model, custom_prompt)
+        logger.info(f"HWPX 유사문항 생성 완료: {data['usage']['total_tokens']} tokens")
+
+        # HWPX 출력 파일 생성
+        hwpx_bytes = create_hwpx(data["text"])
+
+        entry_id = history_service.save_history({
+            "type": "hwpx_generate",
+            "variant_type": variant_type,
+            "difficulty": difficulty,
+            "model": model,
+            "custom_prompt": custom_prompt,
+            "result": data["text"],
+            "usage": data["usage"],
+        })
+
+        return {
+            "result": data["text"],
+            "graphs": data.get("graphs", []),
+            "usage": data["usage"],
+            "history_id": entry_id,
+            "hwpx_download": base64.b64encode(hwpx_bytes).decode("utf-8"),
+        }
+    except Exception as e:
+        logger.error(f"HWPX 유사문항 생성 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/hwpx-solve")
+async def hwpx_solve(
+    file: UploadFile = File(...),
+    model: str = "sonnet",
+):
+    """HWPX 파일로 변형문항 해설 작성 (문제+해설+유사문제 포함)"""
+    logger.info(f"HWPX 변형문항 해설: model={model}")
+
+    try:
+        file_bytes = await file.read()
+        text_content = read_hwpx(file_bytes)
+        logger.info(f"HWPX 파싱 완료: {len(text_content)}자")
+
+        data = await claude_service.solve_variant_from_text(text_content, model)
+        logger.info(f"HWPX 변형문항 해설 완료: {data['usage']['total_tokens']} tokens")
+
+        hwpx_bytes = create_hwpx(data["text"])
+
+        entry_id = history_service.save_history({
+            "type": "hwpx_solve",
+            "model": model,
+            "result": data["text"],
+            "usage": data["usage"],
+        })
+
+        return {
+            "result": data["text"],
+            "graphs": data.get("graphs", []),
+            "usage": data["usage"],
+            "history_id": entry_id,
+            "hwpx_download": base64.b64encode(hwpx_bytes).decode("utf-8"),
+        }
+    except Exception as e:
+        logger.error(f"HWPX 변형문항 해설 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/api/prompt-feedback")

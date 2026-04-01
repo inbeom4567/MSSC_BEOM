@@ -170,6 +170,65 @@ class ClaudeService:
             "usage": _make_usage_info(message, model_id),
         }
 
+    async def generate_variant_from_text(self, text_content: str, variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "") -> dict:
+        """HWPX에서 추출한 텍스트로 유사문항 생성"""
+        model_id = self._get_model(model)
+
+        type_desc = "숫자와 조건의 값만 변경하는 숫자 변형" if variant_type == "number" else "문제의 구조나 아이디어를 변경하는 아이디어 변형"
+        diff_desc = {"easier": "원본보다 쉬운", "similar": "원본과 비슷한", "harder": "원본보다 어려운"}.get(difficulty, "원본과 비슷한")
+
+        user_text = (
+            f"아래는 한글 파일에서 추출한 원본 문제와 해설입니다.\n"
+            f"원본 문제와 해설은 정확합니다.\n"
+            f"{diff_desc} 난이도로 {type_desc}을 해주세요.\n"
+            f"유사문항을 만들고 원본 해설과 동일한 풀이 흐름으로 해설해주세요.\n\n"
+            f"{text_content}"
+        )
+        if custom_prompt:
+            user_text += f"\n\n★ 추가 지시사항: {custom_prompt}"
+
+        message = await self.client.messages.create(
+            model=model_id,
+            max_tokens=4096,
+            system=self.solve_prompt,
+            messages=[{"role": "user", "content": user_text}],
+        )
+        text = message.content[0].text
+        processed_text, graphs = process_graphs_in_text(text)
+        return {
+            "text": processed_text,
+            "graphs": graphs,
+            "usage": _make_usage_info(message, model_id),
+        }
+
+    async def solve_variant_from_text(self, text_content: str, model: str = "sonnet") -> dict:
+        """HWPX에서 추출한 텍스트로 변형문항 해설 작성"""
+        model_id = self._get_model(model)
+
+        user_text = (
+            f"아래는 한글 파일에서 추출한 원본 문제, 원본 해설, 유사문제입니다.\n"
+            f"원본 문제와 해설은 정확합니다.\n"
+            f"유사문제를 그대로 두고, 해설만 작성해주세요.\n"
+            f"유사문제의 내용을 절대 수정하지 마세요.\n"
+            f"원본 해설의 풀이 흐름과 형식을 그대로 따라서 해설을 작성해주세요.\n"
+            f"단, 유사문제가 묻는 것에 맞게 해설을 작성하세요.\n\n"
+            f"{text_content}"
+        )
+
+        message = await self.client.messages.create(
+            model=model_id,
+            max_tokens=4096,
+            system=self.variant_solve_prompt,
+            messages=[{"role": "user", "content": user_text}],
+        )
+        text = message.content[0].text
+        processed_text, graphs = process_graphs_in_text(text)
+        return {
+            "text": processed_text,
+            "graphs": graphs,
+            "usage": _make_usage_info(message, model_id),
+        }
+
     async def refine(self, original_result: str, instruction: str, model: str = "sonnet") -> dict:
         """생성된 결과를 수정"""
         model_id = self._get_model(model)
