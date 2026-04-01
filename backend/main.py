@@ -8,7 +8,8 @@ from pathlib import Path
 
 from services.claude_service import ClaudeService
 from services import history_service
-from services.hwpx_service import read_hwpx, create_hwpx
+from services.hwpx_service import read_hwpx, create_hwpx, split_problems
+import asyncio
 from fastapi.responses import Response
 
 logging.basicConfig(level=logging.INFO)
@@ -159,7 +160,7 @@ async def hwpx_generate(
         logger.info(f"HWPX 유사문항 생성 완료: {data['usage']['total_tokens']} tokens")
 
         # HWPX 출력 파일 생성
-        hwpx_bytes = create_hwpx(data["text"])
+        hwpx_bytes = create_hwpx(data["text"], file_bytes)
 
         entry_id = history_service.save_history({
             "type": "hwpx_generate",
@@ -199,7 +200,7 @@ async def hwpx_solve(
         data = await claude_service.solve_variant_from_text(text_content, model)
         logger.info(f"HWPX 변형문항 해설 완료: {data['usage']['total_tokens']} tokens")
 
-        hwpx_bytes = create_hwpx(data["text"])
+        hwpx_bytes = create_hwpx(data["text"], file_bytes)
 
         entry_id = history_service.save_history({
             "type": "hwpx_solve",
@@ -217,6 +218,75 @@ async def hwpx_solve(
         }
     except Exception as e:
         logger.error(f"HWPX 변형문항 해설 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/hwpx-batch")
+async def hwpx_batch(
+    file: UploadFile = File(...),
+    variant_type: str = "idea",
+    difficulty: str = "similar",
+    model: str = "sonnet",
+    custom_prompt: str = "",
+):
+    """HWPX 파일에서 여러 문제를 일괄 처리하여 유사문항 생성"""
+    logger.info(f"HWPX 일괄 처리: type={variant_type}, difficulty={difficulty}, model={model}")
+
+    try:
+        file_bytes = await file.read()
+        text_content = read_hwpx(file_bytes)
+        problems = split_problems(text_content)
+        logger.info(f"HWPX 파싱 완료: {len(problems)}개 문제 감지")
+
+        results = []
+        total_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost_usd": 0, "cost_krw": 0, "model": ""}
+
+        for prob in problems:
+            logger.info(f"  문제 {prob['number']}번 처리 중...")
+            data = await claude_service.generate_variant_from_text(
+                prob["text"], variant_type, difficulty, model, custom_prompt
+            )
+            results.append({
+                "number": prob["number"],
+                "result": data["text"],
+                "graphs": data.get("graphs", []),
+                "usage": data["usage"],
+            })
+            for key in ["input_tokens", "output_tokens", "total_tokens"]:
+                total_usage[key] += data["usage"][key]
+            total_usage["cost_usd"] += data["usage"]["cost_usd"]
+            total_usage["cost_krw"] += data["usage"]["cost_krw"]
+            total_usage["model"] = data["usage"]["model"]
+
+        # 결과를 하나의 텍스트로 합침
+        combined_text = ""
+        for r in results:
+            combined_text += f"-{r['number']}번-\n{r['result']}\n\n"
+
+        hwpx_bytes = create_hwpx(combined_text.strip(), file_bytes)
+
+        entry_id = history_service.save_history({
+            "type": "hwpx_batch",
+            "variant_type": variant_type,
+            "difficulty": difficulty,
+            "model": model,
+            "custom_prompt": custom_prompt,
+            "result": combined_text.strip(),
+            "usage": total_usage,
+        })
+
+        logger.info(f"일괄 처리 완료: {len(results)}개, 총 {total_usage['total_tokens']} tokens")
+
+        return {
+            "results": results,
+            "combined_text": combined_text.strip(),
+            "usage": total_usage,
+            "history_id": entry_id,
+            "hwpx_download": base64.b64encode(hwpx_bytes).decode("utf-8"),
+            "problem_count": len(results),
+        }
+    except Exception as e:
+        logger.error(f"HWPX 일괄 처리 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
