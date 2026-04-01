@@ -6,7 +6,7 @@ import TabPromptEdit from './components/TabPromptEdit'
 
 const TABS = [
   { id: 'create', label: '유사문항 생성', desc: '문제+해설 → 유사문항' },
-  { id: 'solve', label: '변형문항 풀이', desc: '문제+해설+변형문항 → 풀이' },
+  { id: 'solve', label: '변형문항 해설', desc: '문제+해설+변형문항 → 해설' },
   { id: 'history', label: '히스토리', desc: '저장된 결과 · 비교' },
   { id: 'prompt', label: '프롬프트 수정', desc: '출력 피드백 반영' },
 ]

@@ -32,7 +32,7 @@ function parseSolution(text) {
   return parts
 }
 
-export default function SolutionDisplay({ solution, graphs = [], title = '풀이' }) {
+export default function SolutionDisplay({ solution, graphs = [], title = '해설' }) {
   const [fullCopied, setFullCopied] = useState(false)
   const [listCopied, setListCopied] = useState(false)
 
@@ -42,7 +42,16 @@ export default function SolutionDisplay({ solution, graphs = [], title = '풀이
   const formulas = parts.filter(p => p.type === 'formula')
 
   const handleFullCopy = () => {
-    navigator.clipboard.writeText(solution)
+    // 수식과 한글 텍스트 사이에 띄어쓰기 보정
+    let text = solution
+    // [수식] 앞: 한글/숫자 바로 뒤에 [ 가 오면 공백 추가
+    text = text.replace(/([가-힣a-zA-Z0-9])\[/g, '$1 [')
+    // [수식] 뒤: ] 바로 뒤에 한글이 오면 공백 추가 (조사 제외: 은는이가를의와로에서도)
+    text = text.replace(/\]([가-힣])/g, (match, char) => {
+      const josa = '은는이가를의와로에서도만으며고'
+      return josa.includes(char) ? match : `] ${char}`
+    })
+    navigator.clipboard.writeText(text)
     setFullCopied(true)
     setTimeout(() => setFullCopied(false), 1500)
   }

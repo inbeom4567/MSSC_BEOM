@@ -131,7 +131,7 @@ export default function TabSolveVariant() {
 
       {result && (
         <>
-          <SolutionDisplay solution={result} graphs={graphs} title="변형문항 풀이" />
+          <SolutionDisplay solution={result} graphs={graphs} title="변형문항 해설" />
           <UsageInfo usage={usage} />
         </>
       )}

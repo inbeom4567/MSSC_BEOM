@@ -193,7 +193,7 @@ export default function TabCreateVariant() {
 
       {result && (
         <>
-          <SolutionDisplay solution={result} graphs={graphs} title="유사문항 & 풀이" />
+          <SolutionDisplay solution={result} graphs={graphs} title="유사문항 & 해설" />
           <UsageInfo usage={usage} />
 
           {/* 수정 요청 영역 */}
