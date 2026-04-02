@@ -116,8 +116,8 @@ export default function TabHwpx() {
     setHwpxDownload(null); setError(null); setCustomPrompt(''); setProgress('')
   }
 
-  const OptionPanel = ({ onSubmit, submitLabel, color = 'blue' }) => (
-    <div className={`p-4 bg-${color}-50 rounded-xl border border-${color}-200 space-y-3`}>
+  const renderOptions = (onSubmit, submitLabel) => (
+    <div className="p-4 bg-blue-50 rounded-xl border border-blue-200 space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm font-medium text-gray-600">변형:</span>
         {TYPES.map((t) => (
@@ -143,11 +143,11 @@ export default function TabHwpx() {
             }`}>{m.label}</button>
         ))}
       </div>
-      <textarea value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
-        placeholder="문제 제작 지시사항 (선택)" className="w-full p-2.5 border border-gray-200 rounded-lg text-sm resize-none h-12 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
+      <input type="text" value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
+        placeholder="문제 제작 지시사항 (선택)" className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
       <div className="flex gap-3">
         <button onClick={onSubmit} disabled={isLoading}
-          className={`flex-1 py-2.5 bg-${color}-600 text-white rounded-lg font-medium hover:bg-${color}-700 disabled:opacity-50 transition-colors`}>
+          className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
           {isLoading ? '처리 중...' : submitLabel}
         </button>
         <button onClick={handleReset} className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">초기화</button>
@@ -155,10 +155,29 @@ export default function TabHwpx() {
     </div>
   )
 
+  const [isDragging, setIsDragging] = useState(false)
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const f = e.dataTransfer.files[0]
+    if (f && f.name.endsWith('.hwpx')) {
+      setFile(f); setFileName(f.name); setResult(null); setBatchResults(null); setError(null); setMode(null)
+      setPreviewText('HWPX 파일이 업로드되었습니다.')
+    }
+  }
+
   return (
     <div className="space-y-4">
-      {/* 파일 업로드 */}
-      <div className="p-6 border-2 border-dashed border-gray-300 rounded-xl text-center hover:border-blue-400 transition-colors">
+      {/* 파일 업로드 (드래그앤드롭 + 클릭) */}
+      <div
+        className={`p-6 border-2 border-dashed rounded-xl text-center transition-colors ${
+          isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+      >
         <input type="file" accept=".hwpx" onChange={handleFile} className="hidden" id="hwpx-input" />
         <label htmlFor="hwpx-input" className="cursor-pointer">
           {fileName ? (
@@ -169,11 +188,10 @@ export default function TabHwpx() {
           ) : (
             <div className="py-4">
               <div className="text-3xl mb-2">📄</div>
-              <p className="text-gray-600 font-medium">한글 파일(.hwpx) 업로드</p>
+              <p className="text-gray-600 font-medium">한글 파일(.hwpx)을 드래그하거나 클릭</p>
               <p className="text-gray-400 text-xs mt-2">
-                단일 문제: -문제- / -해설-<br/>
-                해설 작성: -문제- / -해설- / -유사문제-<br/>
-                여러 문제: -1번- -문제- -해설- / -2번- -문제- -해설- ...
+                미주 형식 / -문제-해설- 형식 모두 지원<br/>
+                여러 문제: -1번- -문제- -해설- / -2번- ...
               </p>
             </div>
           )}
@@ -206,10 +224,10 @@ export default function TabHwpx() {
       )}
 
       {/* 단일 생성 */}
-      {mode === 'generate' && <OptionPanel onSubmit={handleGenerate} submitLabel="유사문항 생성" />}
+      {mode === 'generate' && renderOptions(handleGenerate, '유사문항 생성')}
 
       {/* 일괄 생성 */}
-      {mode === 'batch' && <OptionPanel onSubmit={handleBatch} submitLabel="일괄 유사문항 생성" color="indigo" />}
+      {mode === 'batch' && renderOptions(handleBatch, '일괄 유사문항 생성')}
 
       {/* 해설 작성 */}
       {mode === 'solve' && (

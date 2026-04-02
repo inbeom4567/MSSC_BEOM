@@ -35,6 +35,7 @@ export default function TabPromptEdit() {
           출력에서 잘못된 부분을 알려주면 프롬프트에 자동으로 규칙이 추가됩니다.
         </p>
         <textarea
+          key="prompt-feedback-textarea"
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           placeholder="예: 플러스마이너스는 pm이 아니라 +- 로 써야 합니다"

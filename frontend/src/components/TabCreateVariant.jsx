@@ -161,11 +161,11 @@ export default function TabCreateVariant() {
             <label className="text-sm font-medium text-gray-600 block mb-1">
               문제 제작 지시사항 (선택):
             </label>
-            <textarea
+            <input type="text"
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
-              placeholder="예: 로그 밑을 3 대신 2로 바꿔서 만들어줘 / 조건에 절댓값을 추가해줘 / 답이 정수가 되도록 만들어줘"
-              className="w-full p-2.5 border border-blue-200 rounded-lg text-sm resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+              placeholder="예: 로그 밑을 3 대신 2로 바꿔서 만들어줘 / 조건에 절댓값을 추가해줘"
+              className="w-full p-2.5 border border-blue-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
             />
           </div>
 
@@ -202,11 +202,11 @@ export default function TabCreateVariant() {
               수정 요청
             </label>
             <div className="flex gap-2">
-              <textarea
+              <input type="text"
                 value={refineText}
                 onChange={(e) => setRefineText(e.target.value)}
-                placeholder="예: 문제의 조건을 좀 더 단순하게 / 답을 78에서 다른 값으로 / 풀이 3단계를 더 자세하게"
-                className="flex-1 p-2.5 border border-amber-200 rounded-lg text-sm resize-none h-12 focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
+                placeholder="예: 문제의 조건을 좀 더 단순하게 / 답을 다른 값으로"
+                className="flex-1 p-2.5 border border-amber-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white"
               />
               <button onClick={handleRefine} disabled={isRefining || !refineText.trim()}
                 className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:opacity-50 transition-colors whitespace-nowrap">
