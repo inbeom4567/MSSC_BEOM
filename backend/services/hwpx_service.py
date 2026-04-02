@@ -206,16 +206,15 @@ def _build_section_xml(text: str, original_section: str = None) -> str:
 
     for block in blocks:
         if block['type'] == 'problem_with_solution':
-            # 문제 텍스트 + 미주(해설)
             problem_lines = block['problem'].split('\n')
-            solution_text = block['solution']
+            answer_text = block.get('answer', '')
+            solution_text = block.get('solution', '')
 
             for i, line in enumerate(problem_lines):
                 runs = _line_to_runs(line, eq_counter)
 
-                # 첫 번째 문제 줄에 미주 삽입
                 if i == 0:
-                    endnote_xml = _make_endnote(solution_text, en_counter[0], eq_counter)
+                    endnote_xml = _make_endnote(answer_text, solution_text, en_counter[0], eq_counter)
                     runs = f'<hp:run charPrIDRef="0"><hp:ctrl>{endnote_xml}</hp:ctrl></hp:run>' + runs
                     en_counter[0] += 1
 
@@ -242,15 +241,11 @@ def _build_section_xml(text: str, original_section: str = None) -> str:
 
 
 def _parse_problem_blocks(text: str) -> list[dict]:
-    """텍스트를 문제+해설 블록으로 분리."""
+    """텍스트를 문제+정답+해설 블록으로 분리."""
     blocks = []
 
-    # -N번- 으로 여러 문제 분리
-    problem_pattern = re.compile(r'-\d+번-|-문제-')
-    solution_pattern = re.compile(r'-해설-')
-
-    # 간단 파싱: -문제- 와 -해설- 쌍 찾기
-    parts = re.split(r'(-\d+번-|-문제-|-해설-)', text)
+    # 태그로 분리: -N번-, -문제-, -유사문항-, -정답-, -해설-
+    parts = re.split(r'(-\d+번-|-문제-|-유사문항-|-정답-|-해설-)', text)
 
     current_problem = None
     current_type = None
@@ -261,30 +256,29 @@ def _parse_problem_blocks(text: str) -> list[dict]:
             continue
 
         if re.match(r'-\d+번-', part):
-            continue  # 번호 태그는 건너뜀
-        elif part == '-문제-':
-            if current_problem and current_type == 'solution':
-                # 이전 문제+해설 블록 저장
-                pass  # 아래서 처리
+            continue
+        elif part in ('-문제-', '-유사문항-'):
             current_type = 'problem'
-            current_problem = {'problem': '', 'solution': ''}
+            current_problem = {'problem': '', 'answer': '', 'solution': ''}
+        elif part == '-정답-':
+            current_type = 'answer'
         elif part == '-해설-':
             current_type = 'solution'
         elif current_type == 'problem' and current_problem:
             current_problem['problem'] = part
+        elif current_type == 'answer' and current_problem:
+            current_problem['answer'] = part
         elif current_type == 'solution' and current_problem:
             current_problem['solution'] = part
             blocks.append({'type': 'problem_with_solution', **current_problem})
             current_problem = None
             current_type = None
         else:
-            # -문제-/-해설- 없는 일반 텍스트
             if not current_problem:
                 blocks.append({'type': 'text', 'text': part})
 
-    # 마지막 블록
     if current_problem:
-        if current_problem.get('solution'):
+        if current_problem.get('solution') or current_problem.get('answer'):
             blocks.append({'type': 'problem_with_solution', **current_problem})
         elif current_problem.get('problem'):
             blocks.append({'type': 'text', 'text': current_problem['problem']})
@@ -292,12 +286,21 @@ def _parse_problem_blocks(text: str) -> list[dict]:
     return blocks
 
 
-def _make_endnote(solution_text: str, number: int, eq_counter: list) -> str:
-    """해설 텍스트를 hp:endNote XML로 변환."""
+def _make_endnote(answer_text: str, solution_text: str, number: int, eq_counter: list) -> str:
+    """[정답] 답 + 빈줄 + 해설 형식의 hp:endNote XML 생성."""
     inst_id = 2125617800 + number
 
-    # 해설 내 각 줄을 paragraph로
     inner_paragraphs = []
+
+    # [정답] 줄
+    if answer_text:
+        answer_runs = f'<hp:run charPrIDRef="0"><hp:t>[정답] </hp:t></hp:run>'
+        answer_runs += _line_to_runs(answer_text.strip(), eq_counter)
+        inner_paragraphs.append(f'<hp:p paraPrIDRef="0" styleIDRef="0">{answer_runs}</hp:p>')
+        # 빈 줄
+        inner_paragraphs.append('<hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t></hp:t></hp:run></hp:p>')
+
+    # 해설 각 줄
     for line in solution_text.split('\n'):
         runs = _line_to_runs(line, eq_counter)
         if not runs:
@@ -341,6 +344,9 @@ def _make_equation_xml(script: str, eq_id: int) -> str:
 
 def _line_to_runs(line: str, eq_counter: list) -> str:
     """한 줄 텍스트를 hp:run + hp:equation XML로 변환."""
+    # 수식 사이 불필요한 공백 제거: '] [' → ']['
+    line = re.sub(r'\]\s+\[', '][', line)
+
     formula_pattern = re.compile(r'\[([^\]]+)\]')
     parts = []
     last_end = 0
