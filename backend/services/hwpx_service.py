@@ -204,8 +204,15 @@ def _build_section_xml(text: str, original_section: str = None) -> str:
     paragraphs = []
     first = True
 
+    block_count = 0
     for block in blocks:
         if block['type'] == 'problem_with_solution':
+            # 문제 사이에 빈 줄 10개 삽입 (첫 문제 제외)
+            if block_count > 0:
+                for _ in range(10):
+                    paragraphs.append('<hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t></hp:t></hp:run></hp:p>')
+            block_count += 1
+
             problem_lines = block['problem'].split('\n')
             answer_text = block.get('answer', '')
             solution_text = block.get('solution', '')
@@ -292,11 +299,22 @@ def _make_endnote(answer_text: str, solution_text: str, number: int, eq_counter:
 
     inner_paragraphs = []
 
-    # [정답] 줄
+    # 미주 번호 자동 삽입 + [정답] 줄
+    autonum_xml = (
+        f'<hp:run charPrIDRef="0"><hp:ctrl>'
+        f'<hp:autoNum num="{number}" numType="ENDNOTE">'
+        f'<hp:autoNumFormat type="DIGIT" userChar="" prefixChar="" suffixChar=")" supscript="0"/>'
+        f'</hp:autoNum>'
+        f'</hp:ctrl></hp:run>'
+    )
+
     if answer_text:
-        answer_runs = f'<hp:run charPrIDRef="0"><hp:t>[정답] </hp:t></hp:run>'
+        answer_runs = autonum_xml
+        answer_runs += f'<hp:run charPrIDRef="0"><hp:t> [정답] </hp:t></hp:run>'
         answer_runs += _line_to_runs(answer_text.strip(), eq_counter)
         inner_paragraphs.append(f'<hp:p paraPrIDRef="0" styleIDRef="0">{answer_runs}</hp:p>')
+    else:
+        inner_paragraphs.append(f'<hp:p paraPrIDRef="0" styleIDRef="0">{autonum_xml}</hp:p>')
         # 빈 줄
         inner_paragraphs.append('<hp:p paraPrIDRef="0" styleIDRef="0"><hp:run charPrIDRef="0"><hp:t></hp:t></hp:run></hp:p>')
 
