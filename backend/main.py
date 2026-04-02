@@ -140,6 +140,36 @@ async def delete_history(entry_id: str):
     return {"message": "삭제되었습니다."}
 
 
+@app.post("/api/hwpx-analyze")
+async def hwpx_analyze(file: UploadFile = File(...)):
+    """HWPX 파일을 분석하여 문제 수와 미리보기 반환"""
+    try:
+        file_bytes = await file.read()
+        text_content = read_hwpx(file_bytes)
+        problems = split_problems(text_content)
+
+        previews = []
+        for p in problems:
+            # 문제 부분만 추출 (해설 제외)
+            problem_text = p['text']
+            if '-문제-' in problem_text:
+                problem_part = problem_text.split('-해설-')[0].replace('-문제-', '').strip()
+            else:
+                problem_part = problem_text[:100]
+            previews.append({
+                "number": p['number'],
+                "preview": problem_part[:120] + ('...' if len(problem_part) > 120 else ''),
+            })
+
+        return {
+            "problem_count": len(problems),
+            "problems": previews,
+            "raw_text": text_content,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/hwpx-generate")
 async def hwpx_generate(
     file: UploadFile = File(...),
@@ -228,15 +258,22 @@ async def hwpx_batch(
     difficulty: str = "similar",
     model: str = "sonnet",
     custom_prompt: str = "",
+    selected_numbers: str = "",  # "1,2,3" 또는 "" (전체)
 ):
-    """HWPX 파일에서 여러 문제를 일괄 처리하여 유사문항 생성"""
-    logger.info(f"HWPX 일괄 처리: type={variant_type}, difficulty={difficulty}, model={model}")
+    """HWPX 파일에서 선택된 문제들의 유사문항 생성"""
+    logger.info(f"HWPX 일괄 처리: type={variant_type}, difficulty={difficulty}, model={model}, selected={selected_numbers}")
 
     try:
         file_bytes = await file.read()
         text_content = read_hwpx(file_bytes)
         problems = split_problems(text_content)
         logger.info(f"HWPX 파싱 완료: {len(problems)}개 문제 감지")
+
+        # 선택된 문제만 필터링
+        if selected_numbers:
+            selected = set(int(n.strip()) for n in selected_numbers.split(',') if n.strip())
+            problems = [p for p in problems if p['number'] in selected]
+            logger.info(f"선택된 문제: {selected}, 처리할 문제: {len(problems)}개")
 
         results = []
         total_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost_usd": 0, "cost_krw": 0, "model": ""}
