@@ -38,27 +38,86 @@ def read_hwpx(file_bytes: bytes) -> str:
 
 
 def _parse_section_xml(xml_content: str) -> str:
-    """section XML에서 텍스트+수식을 순서대로 추출."""
-    root = ET.fromstring(xml_content)
-    lines = []
+    """section XML에서 텍스트+수식을 추출. 미주(endNote)가 있으면 문제/해설을 자동 분리."""
+
+    # 1단계: 미주(endNote) 추출 + 본문에서 제거
+    endnote_map = {}
+    endnote_pattern = re.compile(r'<hp:endNote\s+number="(\d+)"[^>]*>(.*?)</hp:endNote>', re.DOTALL)
+
+    for match in endnote_pattern.finditer(xml_content):
+        num = match.group(1)
+        endnote_xml = match.group(2)
+        texts = re.findall(r'<hp:t>(.*?)</hp:t>', endnote_xml)
+        scripts = re.findall(r'<hp:script>(.*?)</hp:script>', endnote_xml)
+
+        # 텍스트와 수식을 순서대로 조합 (정규식으로 순서 유지)
+        parts = []
+        for item in re.finditer(r'<hp:t>(.*?)</hp:t>|<hp:script>(.*?)</hp:script>', endnote_xml):
+            if item.group(1) is not None:
+                t = item.group(1).strip()
+                if t and '<' not in t:  # HTML 태그 제외
+                    parts.append(t)
+            elif item.group(2) is not None:
+                s = item.group(2).strip()
+                if s:
+                    parts.append(f'[{s}]')
+        endnote_map[num] = ' '.join(parts)
+
+    # 미주가 제거된 본문 XML
+    body_xml = endnote_pattern.sub('', xml_content)
+
+    has_endnotes = len(endnote_map) > 0
+
+    # 2단계: 본문 텍스트 추출
+    root = _safe_parse(body_xml, xml_content)
+
+    body_lines = []
     for p in root.iter('{http://www.hancom.co.kr/hwpml/2011/paragraph}p'):
-        line_parts = []
-        _extract_paragraph(p, line_parts)
-        line = ''.join(line_parts).strip()
-        lines.append(line)
-    return '\n'.join(lines)
+        parts = []
+        for elem in p.iter():
+            tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+            if tag == 't' and elem.text:
+                parts.append(elem.text)
+            elif tag == 'script' and elem.text:
+                formula = elem.text.strip()
+                if formula:
+                    parts.append(f'[{formula}]')
+        line = ''.join(parts).strip()
+        body_lines.append(line)
+
+    if not has_endnotes:
+        return '\n'.join(body_lines)
+
+    # 3단계: 미주 형식 → -문제- / -해설- 구조로 변환
+    # 본문에서 비어있지 않은 줄 = 문제 텍스트
+    problem_text = '\n'.join(line for line in body_lines if line.strip())
+
+    result_parts = []
+    if len(endnote_map) == 1:
+        # 단일 문제
+        result_parts.append('-문제-')
+        result_parts.append(problem_text)
+        result_parts.append('\n-해설-')
+        result_parts.append(list(endnote_map.values())[0])
+    else:
+        # 여러 문제 (미주 번호별)
+        # 본문을 미주 번호 기준으로 분리하기 어려우므로 전체를 하나로
+        for num, solution in sorted(endnote_map.items(), key=lambda x: int(x[0])):
+            result_parts.append(f'\n-{num}번-')
+            result_parts.append('-문제-')
+            result_parts.append(problem_text)  # TODO: 문제별 분리 개선
+            result_parts.append('\n-해설-')
+            result_parts.append(solution)
+
+    return '\n'.join(result_parts)
 
 
-def _extract_paragraph(p_elem, parts: list):
-    """paragraph 요소에서 텍스트와 수식을 순서대로 추출."""
-    for elem in p_elem.iter():
-        tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
-        if tag == 't' and elem.text:
-            parts.append(elem.text)
-        elif tag == 'script' and elem.text:
-            formula = elem.text.strip()
-            if formula:
-                parts.append(f'[{formula}]')
+def _safe_parse(modified_xml: str, original_xml: str):
+    """수정된 XML 파싱 시도, 실패하면 원본으로 파싱."""
+    try:
+        return ET.fromstring(modified_xml)
+    except ET.ParseError:
+        return ET.fromstring(original_xml)
 
 
 def split_problems(text: str) -> list[dict]:
@@ -139,8 +198,64 @@ def _create_from_default_template(text: str) -> bytes:
     return buf.read()
 
 
+def _make_equation_xml(script: str, eq_id: int) -> str:
+    """한글 수식 코드를 hp:equation XML로 변환."""
+    # 수식 길이에 따라 대략적인 너비 계산 (글자당 약 400 단위)
+    width = max(2000, len(script) * 400)
+    height = 9100
+
+    return (
+        f'<hp:equation id="{eq_id}" zOrder="0" numberingType="EQUATION" '
+        f'textWrap="TOP_AND_BOTTOM" textFlow="BOTH_SIDES" lock="0" '
+        f'dropcapstyle="None" version="Equation Version 60" baseLine="0" '
+        f'textColor="#000000" baseUnit="1000" lineMode="CHAR" font="HancomEQN">'
+        f'<hp:sz width="{width}" widthRelTo="ABSOLUTE" height="{height}" '
+        f'heightRelTo="ABSOLUTE" protect="0" />'
+        f'<hp:pos treatAsChar="1" affectLSpacing="0" flowWithText="1" '
+        f'allowOverlap="0" holdAnchorAndSO="0" vertRelTo="PARA" horzRelTo="PARA" '
+        f'vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0" />'
+        f'<hp:outMargin left="56" right="56" top="0" bottom="0" />'
+        f'<hp:shapeComment>수식 입니다.</hp:shapeComment>'
+        f'<hp:script>{script}</hp:script>'
+        f'</hp:equation>'
+    )
+
+
+def _line_to_runs(line: str, eq_counter: list) -> str:
+    """한 줄의 텍스트를 hp:run + hp:equation XML로 변환.
+
+    [수식코드] 패턴을 찾아서 hp:equation으로 변환.
+    """
+    formula_pattern = re.compile(r'\[([^\]]+)\]')
+    parts = []
+    last_end = 0
+
+    for match in formula_pattern.finditer(line):
+        # 수식 앞 텍스트
+        before = line[last_end:match.start()]
+        if before:
+            escaped = before.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+            parts.append(f'<hp:run charPrIDRef="0"><hp:t>{escaped}</hp:t></hp:run>')
+
+        # 수식 객체
+        script = match.group(1)
+        eq_id = 1700000000 + eq_counter[0]
+        eq_counter[0] += 1
+        parts.append(f'<hp:run charPrIDRef="0">{_make_equation_xml(script, eq_id)}</hp:run>')
+
+        last_end = match.end()
+
+    # 남은 텍스트
+    after = line[last_end:]
+    if after:
+        escaped = after.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+        parts.append(f'<hp:run charPrIDRef="0"><hp:t>{escaped}</hp:t></hp:run>')
+
+    return ''.join(parts)
+
+
 def _text_to_section_xml(text: str, original_section: str) -> str:
-    """원본 section XML 구조를 유지하면서 본문 내용만 교체."""
+    """원본 section XML 구조를 유지하면서 본문 내용만 교체. 수식을 equation 객체로 변환."""
     # 원본 XML에서 secPr (섹션 속성) 부분 추출
     sec_pr_match = re.search(r'(<hp:secPr.*?</hp:secPr>)', original_section, re.DOTALL)
     sec_pr = sec_pr_match.group(1) if sec_pr_match else ''
@@ -149,33 +264,38 @@ def _text_to_section_xml(text: str, original_section: str) -> str:
     ns_match = re.search(r'(<hs:sec[^>]+>)', original_section)
     ns_tag = ns_match.group(1) if ns_match else '<hs:sec xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph" xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section">'
 
-    # 본문 paragraph 생성
+    eq_counter = [1]  # 수식 ID 카운터 (mutable로 전달)
+
     paragraphs = []
     first = True
     for line in text.split('\n'):
-        escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+        runs = _line_to_runs(line, eq_counter)
 
-        p_content = ''
         if first and sec_pr:
-            p_content = f'<hp:run charPrIDRef="0">{sec_pr}<hp:t>{escaped}</hp:t></hp:run>'
+            # 첫 paragraph에 secPr 삽입
+            runs = f'<hp:run charPrIDRef="0">{sec_pr}</hp:run>' + runs
             first = False
-        else:
-            p_content = f'<hp:run charPrIDRef="0"><hp:t>{escaped}</hp:t></hp:run>'
 
-        paragraphs.append(f'<hp:p paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">{p_content}</hp:p>')
+        if not runs:
+            runs = '<hp:run charPrIDRef="0"><hp:t></hp:t></hp:run>'
+
+        paragraphs.append(f'<hp:p paraPrIDRef="0" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0">{runs}</hp:p>')
 
     body = '\n'.join(paragraphs)
     return f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n{ns_tag}\n{body}\n</hs:sec>'
 
 
 def _text_to_simple_section(text: str) -> str:
-    """간단한 section XML 생성."""
+    """간단한 section XML 생성 (수식 객체 포함)."""
+    eq_counter = [1]
     paragraphs = []
     for line in text.split('\n'):
-        escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        runs = _line_to_runs(line, eq_counter)
+        if not runs:
+            runs = '<hp:run charPrIDRef="0"><hp:t></hp:t></hp:run>'
         paragraphs.append(
             f'<hp:p paraPrIDRef="0" styleIDRef="0">'
-            f'<hp:run charPrIDRef="0"><hp:t>{escaped}</hp:t></hp:run>'
+            f'{runs}'
             f'</hp:p>'
         )
     body = '\n'.join(paragraphs)
