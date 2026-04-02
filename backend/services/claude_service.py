@@ -41,6 +41,17 @@ def _make_usage_info(message, model: str) -> dict:
     }
 
 
+def _merge_usage(u1: dict, u2: dict) -> dict:
+    return {
+        "input_tokens": u1["input_tokens"] + u2["input_tokens"],
+        "output_tokens": u1["output_tokens"] + u2["output_tokens"],
+        "total_tokens": u1["total_tokens"] + u2["total_tokens"],
+        "cost_usd": round(u1["cost_usd"] + u2["cost_usd"], 4),
+        "cost_krw": round(u1["cost_krw"] + u2["cost_krw"], 0),
+        "model": u1["model"],
+    }
+
+
 class ClaudeService:
     MODELS = {
         "sonnet": "claude-sonnet-4-20250514",
@@ -108,6 +119,27 @@ class ClaudeService:
     def _get_model(self, model: str) -> str:
         return self.MODELS.get(model, self.MODELS["sonnet"])
 
+    async def _cleanup_output(self, raw_text: str, model_id: str) -> tuple[str, dict]:
+        """2차 정제: 내부 사고 과정 제거, 문제-풀이 일치 검증, 최종본 출력."""
+        cleanup_prompt = (
+            "아래는 유사문항 생성 결과입니다. 다음 작업을 수행하세요:\n\n"
+            "1. 내부 사고 과정(잠깐, 다시 확인, 수정하겠습니다, STEP, 검증, ##, **, ✓ 등)을 모두 제거\n"
+            "2. 문제 본문과 풀이에서 사용하는 숫자/조건이 일치하는지 확인. 불일치하면 풀이 기준으로 문제를 수정\n"
+            "3. 풀이의 최종 답과 -정답- 태그의 답이 일치하는지 확인\n"
+            "4. 깔끔하게 정리된 최종본만 출력\n\n"
+            "출력 형식: -유사문항- / -정답- / -해설- 태그만 사용. 다른 텍스트 금지.\n\n"
+            "--- 원본 ---\n"
+            f"{raw_text}"
+        )
+
+        message = await self.client.messages.create(
+            model=model_id,
+            max_tokens=4096,
+            system="당신은 수학 문서 편집자입니다. 주어진 텍스트에서 불필요한 내용을 제거하고 깔끔하게 정리하세요. 수식 대괄호 규칙을 그대로 유지하세요.",
+            messages=[{"role": "user", "content": cleanup_prompt}],
+        )
+        return message.content[0].text, _make_usage_info(message, model_id)
+
     async def generate_variant(self, images: list[dict], variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "") -> dict:
         """유사문항 생성 + 풀이"""
         content = self._make_image_content(images)
@@ -133,13 +165,15 @@ class ClaudeService:
             system=self.solve_prompt,
             messages=[{"role": "user", "content": content}],
         )
-        text = message.content[0].text
-        processed_text, graphs = process_graphs_in_text(text)
-        return {
-            "text": processed_text,
-            "graphs": graphs,
-            "usage": _make_usage_info(message, model_id),
-        }
+        raw_text = message.content[0].text
+        usage1 = _make_usage_info(message, model_id)
+
+        # 2차 정제
+        cleaned_text, usage2 = await self._cleanup_output(raw_text, model_id)
+        processed_text, graphs = process_graphs_in_text(cleaned_text)
+
+        total_usage = _merge_usage(usage1, usage2)
+        return {"text": processed_text, "graphs": graphs, "usage": total_usage}
 
     async def solve_variant(self, images: list[dict], model: str = "sonnet") -> dict:
         """변형문항 풀이 생성"""
@@ -193,13 +227,15 @@ class ClaudeService:
             system=self.solve_prompt,
             messages=[{"role": "user", "content": user_text}],
         )
-        text = message.content[0].text
-        processed_text, graphs = process_graphs_in_text(text)
-        return {
-            "text": processed_text,
-            "graphs": graphs,
-            "usage": _make_usage_info(message, model_id),
-        }
+        raw_text = message.content[0].text
+        usage1 = _make_usage_info(message, model_id)
+
+        # 2차 정제
+        cleaned_text, usage2 = await self._cleanup_output(raw_text, model_id)
+        processed_text, graphs = process_graphs_in_text(cleaned_text)
+
+        total_usage = _merge_usage(usage1, usage2)
+        return {"text": processed_text, "graphs": graphs, "usage": total_usage}
 
     async def solve_variant_from_text(self, text_content: str, model: str = "sonnet") -> dict:
         """HWPX에서 추출한 텍스트로 변형문항 해설 작성"""
