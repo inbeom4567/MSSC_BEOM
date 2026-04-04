@@ -11,6 +11,17 @@ from services import history_service
 from services.hwpx_service import read_hwpx, create_hwpx, split_problems
 import asyncio
 from fastapi.responses import Response
+import uuid
+
+# 임시 HWPX 파일 저장
+_hwpx_store = {}
+
+
+def _store_hwpx(hwpx_bytes: bytes) -> dict:
+    """HWPX 바이트를 저장하고 download_id 반환."""
+    download_id = str(uuid.uuid4())[:8]
+    _hwpx_store[download_id] = hwpx_bytes
+    return {"download_id": download_id}
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,6 +54,19 @@ class RefineRequest(BaseModel):
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.get("/api/hwpx-download/{download_id}")
+async def download_hwpx(download_id: str):
+    """저장된 HWPX 파일 직접 다운로드."""
+    hwpx_bytes = _hwpx_store.pop(download_id, None)
+    if not hwpx_bytes:
+        raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
+    return Response(
+        content=hwpx_bytes,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename=result_{download_id}.hwpx"},
+    )
 
 
 @app.post("/api/generate")
@@ -207,7 +231,7 @@ async def hwpx_generate(
             "graphs": data.get("graphs", []),
             "usage": data["usage"],
             "history_id": entry_id,
-            "hwpx_download": base64.b64encode(hwpx_bytes).decode("utf-8"),
+            **_store_hwpx(hwpx_bytes),
         }
     except Exception as e:
         logger.error(f"HWPX 유사문항 생성 에러: {e}")
@@ -244,7 +268,7 @@ async def hwpx_solve(
             "graphs": data.get("graphs", []),
             "usage": data["usage"],
             "history_id": entry_id,
-            "hwpx_download": base64.b64encode(hwpx_bytes).decode("utf-8"),
+            **_store_hwpx(hwpx_bytes),
         }
     except Exception as e:
         logger.error(f"HWPX 변형문항 해설 에러: {e}")
@@ -319,7 +343,7 @@ async def hwpx_batch(
             "combined_text": combined_text.strip(),
             "usage": total_usage,
             "history_id": entry_id,
-            "hwpx_download": base64.b64encode(hwpx_bytes).decode("utf-8"),
+            **_store_hwpx(hwpx_bytes),
             "problem_count": len(results),
         }
     except Exception as e:
