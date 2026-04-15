@@ -97,8 +97,10 @@ class ClaudeService:
     def _build_prompt(self, filename: str) -> str:
         """프롬프트 텍스트 + 매핑 사전 예시 + few-shot 예시를 결합"""
         base = _load_prompt(filename)
-        fewshot_path = PROMPTS_DIR / "fewshot_examples.txt"
-        fewshot = fewshot_path.read_text(encoding="utf-8") if fewshot_path.exists() else ""
+        try:
+            fewshot = _load_prompt("fewshot_examples.txt")
+        except FileNotFoundError:
+            fewshot = ""
         return base + self.mapping_ref + ("\n\n" + fewshot if fewshot else "")
 
     def reload_prompts(self):
