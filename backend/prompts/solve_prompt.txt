@@ -811,7 +811,7 @@ x범위: -1, 6
   <text x="65" y="135" font-size="12" font-family="serif">O</text>
   <!-- 포물선: SVG좌표 svgX=80+x*40, svgY=120-y*40 -->
   <!-- y=(x-2)²-1: x=0→svgY=0, x=2→svgY=160(최솟값), x=4→svgY=0 -->
-  <path d="M 80,0 C 100,40 120,100 160,160 C 200,100 220,40 240,0"
+  <path d="M 80,0 C 93,80 113,120 120,120 C 130,120 150,160 160,160 C 170,160 190,120 200,120 C 207,120 227,80 240,0"
         stroke="black" stroke-width="1.5" fill="none"/>
   <!-- 꼭짓점 (2,-1) = SVG(160,160) -->
   <circle cx="160" cy="160" r="3" fill="black"/>
@@ -828,4 +828,3 @@ x범위: -1, 6
   <text x="210" y="30" font-size="13" font-style="italic" font-family="serif">y=x²-4x+3</text>
 </svg>
 -그래프끝-
-| 12 | 원본과 비슷한 분량 | 풀이가 너무 짧아지는 것 방지 |
