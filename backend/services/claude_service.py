@@ -95,9 +95,13 @@ class ClaudeService:
         return "\n".join(lines)
 
     def _build_prompt(self, filename: str) -> str:
-        """프롬프트 텍스트 + 매핑 사전 예시를 결합"""
+        """프롬프트 텍스트 + 매핑 사전 예시 + few-shot 예시를 결합"""
         base = _load_prompt(filename)
-        return base + self.mapping_ref
+        try:
+            fewshot = _load_prompt("fewshot_examples.txt")
+        except FileNotFoundError:
+            fewshot = ""
+        return base + self.mapping_ref + ("\n\n" + fewshot if fewshot else "")
 
     def reload_prompts(self):
         self.solve_prompt = self._build_prompt("solve_prompt.txt")

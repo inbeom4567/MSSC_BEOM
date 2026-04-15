@@ -773,4 +773,58 @@ x범위: -1, 6
 | 9 | 그래프는 원본에 있을 때만 | 불필요한 요소 제거 |
 | 10 | 답을 먼저 정하고 문제 설계 | 답이 나오지 않는 문제 방지 |
 | 11 | 풀이 완성 후 반드시 검산 | 수학적 오류 방지 |
-| 12 | 원본과 비슷한 분량 | 풀이가 너무 짧아지는 것 방지 |
+
+---
+
+## 그래프 출력 규칙 (SVG 방식)
+
+그래프가 필요할 때는 반드시 아래 태그 형식으로 SVG 코드를 직접 작성하세요.
+
+### 태그 형식
+-그래프-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">
+  <!-- SVG 내용 -->
+</svg>
+-그래프끝-
+
+### 수능/교과서 스타일 SVG 규칙
+1. 좌표축: 검은 실선(stroke="black" stroke-width="1.5"), 화살표 끝 처리
+2. 함수 곡선: 검은 실선(stroke-width="1.5"), fill="none"
+3. 점근선: 검은 점선(stroke-dasharray="4,3")
+4. 포인트: 검은 원(r="3", fill="black")
+5. 축 라벨 x, y: 이탤릭체(font-style="italic")
+6. 원점 O: 로마체
+7. 눈금선 없음, 배경 흰색
+
+### 이차함수 그래프 예시 (y = x² - 4x + 3)
+-그래프-
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 280 280" width="300" height="300">
+  <!-- 좌표축 -->
+  <line x1="-10" y1="120" x2="255" y2="120" stroke="black" stroke-width="1.5"/>
+  <line x1="80" y1="255" x2="80" y2="-10" stroke="black" stroke-width="1.5"/>
+  <!-- 화살표 -->
+  <polygon points="255,120 246,115 246,125" fill="black"/>
+  <polygon points="80,-10 74,-1 86,-1" fill="black"/>
+  <!-- 축 라벨 -->
+  <text x="260" y="124" font-size="14" font-style="italic" font-family="serif">x</text>
+  <text x="68" y="-14" font-size="14" font-style="italic" font-family="serif">y</text>
+  <text x="65" y="135" font-size="12" font-family="serif">O</text>
+  <!-- 포물선: SVG좌표 svgX=80+x*40, svgY=120-y*40 -->
+  <!-- y=(x-2)²-1: x=0→svgY=0, x=2→svgY=160(최솟값), x=4→svgY=0 -->
+  <path d="M 80,0 C 93,80 113,120 120,120 C 130,120 150,160 160,160 C 170,160 190,120 200,120 C 207,120 227,80 240,0"
+        stroke="black" stroke-width="1.5" fill="none"/>
+  <!-- 꼭짓점 (2,-1) = SVG(160,160) -->
+  <circle cx="160" cy="160" r="3" fill="black"/>
+  <text x="164" y="174" font-size="12" font-family="serif">(2, -1)</text>
+  <!-- x절편 x=1→SVG(120,120), x=3→SVG(200,120) -->
+  <circle cx="120" cy="120" r="3" fill="black"/>
+  <text x="114" y="136" font-size="12" font-family="serif">1</text>
+  <circle cx="200" cy="120" r="3" fill="black"/>
+  <text x="196" y="136" font-size="12" font-family="serif">3</text>
+  <!-- y절편 (0,3)=SVG(80,0) -->
+  <circle cx="80" cy="0" r="3" fill="black"/>
+  <text x="56" y="4" font-size="12" font-family="serif">3</text>
+  <!-- 함수 라벨 -->
+  <text x="210" y="30" font-size="13" font-style="italic" font-family="serif">y=x²-4x+3</text>
+</svg>
+-그래프끝-
