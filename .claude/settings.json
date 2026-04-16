@@ -1,4 +1,24 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(npm run:*)",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('main.py', doraise=True\\); py_compile.compile\\('services/claude_service.py', doraise=True\\); print\\('OK'\\)\")",
+      "Bash(taskkill //F //IM \"python.exe\")",
+      "Bash(taskkill //F //IM \"node.exe\")",
+      "Bash(python -m uvicorn main:app --port 8001)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //PID 26084)",
+      "Bash(taskkill //F //PID 28220)",
+      "Bash(start //b cmd //c \"cd frontend && npx vite --port 5173\")",
+      "Bash(start //b cmd //c \"cd backend && python -m uvicorn main:app --port 8001\")",
+      "WebSearch",
+      "WebFetch(domain:docs.nanobananaapi.ai)",
+      "WebFetch(domain:nanobanana.im)",
+      "WebFetch(domain:ai.google.dev)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -10,11 +30,6 @@
           }
         ]
       }
-    ]
-  },
-  "permissions": {
-    "allow": [
-      "Bash(python -c ':*)"
     ]
   }
 }

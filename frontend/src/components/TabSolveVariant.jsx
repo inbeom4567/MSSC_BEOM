@@ -5,7 +5,7 @@ import UsageInfo from './UsageInfo'
 
 const API = 'http://localhost:8001'
 
-export default function TabSolveVariant() {
+export default function TabSolveVariant({ grade, model, guidelines }) {
   const [problemPreview, setProblemPreview] = useState(null)
   const [problemFile, setProblemFile] = useState(null)
   const [solutionPreview, setSolutionPreview] = useState(null)
@@ -14,7 +14,6 @@ export default function TabSolveVariant() {
   const [variantFile, setVariantFile] = useState(null)
   const [dragging, setDragging] = useState(null)
 
-  const [model, setModel] = useState('sonnet')
   const [result, setResult] = useState(null)
   const [graphs, setGraphs] = useState([])
   const [usage, setUsage] = useState(null)
@@ -61,7 +60,9 @@ export default function TabSolveVariant() {
       formData.append('files', problemFile)
       formData.append('files', solutionFile)
       formData.append('files', variantFile)
-      const res = await fetch(`${API}/api/solve-variant?model=${model}`, { method: 'POST', body: formData })
+      const params = new URLSearchParams({ model, grade })
+      if (guidelines) params.set('custom_prompt', guidelines)
+      const res = await fetch(`${API}/api/solve-variant?${params}`, { method: 'POST', body: formData })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || '풀이 생성 실패')
       const data = await res.json()
       setResult(data.result)
@@ -97,16 +98,6 @@ export default function TabSolveVariant() {
       </div>
 
       {ready && (
-        <div className="space-y-3">
-        <div className="flex items-center gap-3 justify-center">
-          <span className="text-sm font-medium text-gray-600">모델:</span>
-          <button onClick={() => setModel('sonnet')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${model === 'sonnet' ? 'bg-sky-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-            Sonnet (빠름, ~100원)</button>
-          <button onClick={() => setModel('opus')}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${model === 'opus' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-            Opus (고품질, ~500원)</button>
-        </div>
         <div className="flex gap-3 justify-center">
           <button onClick={handleSolve} disabled={isLoading}
             className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
@@ -116,7 +107,6 @@ export default function TabSolveVariant() {
             className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
             초기화
           </button>
-        </div>
         </div>
       )}
 

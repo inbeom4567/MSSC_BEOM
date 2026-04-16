@@ -13,10 +13,6 @@ const DIFFS = [
   { value: 'similar', label: '비슷하게' },
   { value: 'harder', label: '더 어렵게' },
 ]
-const MODELS = [
-  { value: 'sonnet', label: 'Sonnet (~100원)', color: 'bg-sky-600' },
-  { value: 'opus', label: 'Opus (~500원)', color: 'bg-purple-600' },
-]
 
 function hwpToLatex(text) {
   return text.replace(/\[([^\]]+)\]/g, (_, code) => {
@@ -55,7 +51,7 @@ function hwpToLatex(text) {
   })
 }
 
-export default function TabHwpx() {
+export default function TabHwpx({ grade, model, guidelines }) {
   const [file, setFile] = useState(null)
   const [fileName, setFileName] = useState('')
   const [isDragging, setIsDragging] = useState(false)
@@ -66,7 +62,6 @@ export default function TabHwpx() {
 
   const [variantType, setVariantType] = useState('idea')
   const [difficulty, setDifficulty] = useState('similar')
-  const [model, setModel] = useState('sonnet')
   const [customPrompt, setCustomPrompt] = useState('')
 
   const [batchResults, setBatchResults] = useState(null)
@@ -112,8 +107,9 @@ export default function TabHwpx() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const params = new URLSearchParams({ variant_type: variantType, difficulty, model, selected_numbers: [...selectedNumbers].join(',') })
-      if (customPrompt.trim()) params.set('custom_prompt', customPrompt.trim())
+      const params = new URLSearchParams({ variant_type: variantType, difficulty, model, grade, selected_numbers: [...selectedNumbers].join(',') })
+      const fullPrompt = [guidelines, customPrompt.trim()].filter(Boolean).join('\n\n')
+      if (fullPrompt) params.set('custom_prompt', fullPrompt)
       const res = await fetch(`${API}/api/hwpx-batch?${params}`, { method: 'POST', body: formData })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || '생성 실패')
       const data = await res.json()
@@ -218,15 +214,8 @@ export default function TabHwpx() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${difficulty === d.value ? 'bg-green-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>{d.label}</button>
             ))}
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium text-gray-600">모델:</span>
-            {MODELS.map((m) => (
-              <button key={m.value} onClick={() => setModel(m.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${model === m.value ? `${m.color} text-white` : 'bg-white text-gray-600 hover:bg-gray-100'}`}>{m.label}</button>
-            ))}
-          </div>
           <input type="text" value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
-            placeholder="문제 제작 지시사항 (선택)"
+            placeholder="추가 지시사항 (선택)"
             className="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
           <div className="flex gap-3">
             <button onClick={handleGenerate} disabled={isLoading}

@@ -1,6 +1,26 @@
 @import "tailwindcss";
 
+/* dark mode: .dark 클래스가 상위에 있을 때 dark: 프리픽스 활성화 */
+@variant dark (&:where(.dark, .dark *));
+
+/* Pretendard 폰트 */
+:root {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 body {
   margin: 0;
-  background-color: #f8fafc;
+  background-color: #F8F9FB;
 }
+
+.dark body,
+.dark {
+  background-color: #0A0B14;
+  color: #E8EAFF;
+}
+
+/* 스크롤바 (다크모드) */
+.dark ::-webkit-scrollbar { width: 6px; height: 6px; }
+.dark ::-webkit-scrollbar-track { background: #11131F; }
+.dark ::-webkit-scrollbar-thumb { background: #2E3356; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #3E4470; }

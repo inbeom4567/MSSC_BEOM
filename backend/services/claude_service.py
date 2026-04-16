@@ -61,8 +61,32 @@ class ClaudeService:
     def __init__(self):
         self.client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         self.mapping_ref = self._load_mapping_reference()
+        self.curriculum = self._load_curriculum()
         self.solve_prompt = self._build_prompt("solve_prompt.txt")
         self.variant_solve_prompt = self._build_prompt("variant_solve_prompt.txt")
+
+    def _load_curriculum(self) -> dict:
+        """교육과정 매핑 데이터 로드"""
+        curriculum_path = DATA_DIR / "curriculum.json"
+        with open(curriculum_path, "r", encoding="utf-8") as f:
+            return json.load(f).get("grades", {})
+
+    def _get_grade_prompt(self, grade: str) -> str:
+        """학년에 맞는 교육과정 제약 프롬프트 생성"""
+        if not grade or grade == "none":
+            return ""
+        info = self.curriculum.get(grade)
+        if not info:
+            return ""
+        lines = [f"\n\n★★★ 학년 제약: {info['label']} ({info.get('subject', '수학')}) ★★★"]
+        lines.append(f"이 학생은 {info['description']} 과정을 배우고 있습니다.")
+        if info.get("allowed"):
+            lines.append(f"사용 가능한 개념: {', '.join(info['allowed'])}")
+        if info.get("forbidden"):
+            lines.append(f"절대 사용 금지 개념: {', '.join(info['forbidden'])}")
+            lines.append(f"위 금지 개념은 아직 배우지 않았으므로 풀이에 절대 사용하지 마세요.")
+        lines.append(f"반드시 {info['label']} 수준에서 이해할 수 있는 풀이만 작성하세요.")
+        return "\n".join(lines)
 
     def _load_mapping_reference(self) -> str:
         """hwp_math_mapping.json에서 수식 변환 예시를 텍스트로 추출"""
@@ -124,16 +148,22 @@ class ClaudeService:
         return self.MODELS.get(model, self.MODELS["sonnet"])
 
     async def _cleanup_output(self, raw_text: str, model_id: str) -> tuple[str, dict]:
-        """2차 정제: 내부 사고 과정 제거, 문제-풀이 일치 검증, 최종본 출력."""
+        """2차 검증: 계산 독립 재검산 + 문제-풀이 일치 + 형식 정리."""
         cleanup_prompt = (
-            "아래는 유사문항 생성 결과입니다. 다음 작업을 수행하세요:\n\n"
-            "1. 내부 사고 과정(잠깐, 다시 확인, 수정하겠습니다, STEP, 검증, ##, **, ✓ 등)을 모두 제거\n"
-            "2. 문제 본문과 풀이에서 사용하는 숫자/조건이 일치하는지 확인. 불일치하면 풀이 기준으로 문제를 수정\n"
-            "3. 풀이의 최종 답과 -정답- 태그의 답이 일치하는지 확인\n"
-            "4. 깔끔하게 정리된 최종본만 출력\n\n"
+            "아래는 유사문항과 해설 초안입니다. 다음을 순서대로 수행하세요.\n\n"
+            "【검증 1: 계산 재검산】\n"
+            "해설의 각 계산 단계를 처음부터 독립적으로 다시 계산하세요.\n"
+            "오류가 있으면 올바른 값으로 수정하세요. 수식 코드도 함께 수정하세요.\n\n"
+            "【검증 2: 문제-풀이 일관성】\n"
+            "문제에서 제시한 숫자·조건과 풀이에서 사용한 값이 일치하는지 확인하세요.\n"
+            "불일치하면 풀이 계산 결과를 기준으로 문제의 숫자/조건을 수정하세요.\n\n"
+            "【검증 3: 정답 확인】\n"
+            "풀이 마지막에 도달한 값과 -정답- 태그의 값이 일치하는지 확인하세요.\n"
+            "불일치하면 풀이 계산 결과로 정답 태그를 수정하세요.\n\n"
+            "【검증 4: 형식 정리】\n"
+            "내부 사고 과정(잠깐, 다시 확인, 수정, STEP, 검증, ##, **, ✓ 등)을 제거하세요.\n\n"
             "★★★ 절대 규칙 ★★★\n"
-            "- 수식은 반드시 대괄호 [수식코드] 형태를 유지하세요. 절대로 $수식$이나 LaTeX로 바꾸지 마세요!\n"
-            "- 원본의 대괄호 수식을 그대로 복사하세요. 수식 내용을 수정하지 마세요.\n"
+            "- 수식은 반드시 대괄호 [수식코드] 형태 유지. $수식$ 또는 LaTeX 형식 금지.\n"
             "- 출력 형식: -유사문항- / -정답- / -해설- 태그만 사용. 다른 텍스트 금지.\n\n"
             "--- 원본 ---\n"
             f"{raw_text}"
@@ -141,13 +171,48 @@ class ClaudeService:
 
         message = await self.client.messages.create(
             model=model_id,
-            max_tokens=4096,
-            system="당신은 수학 문서 편집자입니다. 주어진 텍스트에서 불필요한 내용만 제거하고 깔끔하게 정리하세요. 수식 대괄호 [ ] 형식을 절대 변경하지 마세요. $...$ LaTeX 형식으로 바꾸지 마세요.",
+            max_tokens=8192,
+            system=(
+                "당신은 고등학교 수학 검토 전문가입니다. "
+                "계산을 직접 재수행하여 오류를 찾고, 올바른 값으로 수정합니다. "
+                "수식 대괄호 [ ] 형식을 절대 변경하지 마세요."
+            ),
             messages=[{"role": "user", "content": cleanup_prompt}],
         )
         return message.content[0].text, _make_usage_info(message, model_id)
 
-    async def generate_variant(self, images: list[dict], variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "") -> dict:
+    async def _verify_solve_output(self, raw_text: str, model_id: str) -> tuple[str, dict]:
+        """변형문항 풀이 검증: 계산 재검산 + 정답 확인 + 형식 정리."""
+        verify_prompt = (
+            "아래는 변형문항 풀이 초안입니다. 다음을 수행하세요.\n\n"
+            "【검증 1: 계산 재검산】\n"
+            "풀이의 각 계산 단계를 처음부터 독립적으로 다시 계산하세요.\n"
+            "오류가 있으면 올바른 값으로 수정하세요.\n\n"
+            "【검증 2: 정답 확인】\n"
+            "풀이의 최종 결과와 -정답- 태그가 일치하는지 확인하세요.\n"
+            "불일치하면 계산 결과를 기준으로 정답 태그를 수정하세요.\n\n"
+            "【검증 3: 형식 정리】\n"
+            "내부 사고 과정(잠깐, 수정, STEP, ##, **, ✓ 등)을 제거하세요.\n\n"
+            "★★★ 절대 규칙 ★★★\n"
+            "- 수식은 반드시 대괄호 [수식코드] 형태 유지. $수식$ 또는 LaTeX 형식 금지.\n"
+            "- 출력 형식: -풀이- / -정답- 태그만 사용. 다른 텍스트 금지.\n\n"
+            "--- 원본 ---\n"
+            f"{raw_text}"
+        )
+
+        message = await self.client.messages.create(
+            model=model_id,
+            max_tokens=8192,
+            system=(
+                "당신은 고등학교 수학 검토 전문가입니다. "
+                "계산을 직접 재수행하여 오류를 찾고, 올바른 값으로 수정합니다. "
+                "수식 대괄호 [ ] 형식을 절대 변경하지 마세요."
+            ),
+            messages=[{"role": "user", "content": verify_prompt}],
+        )
+        return message.content[0].text, _make_usage_info(message, model_id)
+
+    async def generate_variant(self, images: list[dict], variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "", grade: str = "none") -> dict:
         """유사문항 생성 + 풀이"""
         content = self._make_image_content(images)
         model_id = self._get_model(model)
@@ -164,54 +229,70 @@ class ClaudeService:
         if custom_prompt:
             user_text += f"\n\n★ 추가 지시사항: {custom_prompt}"
 
+        grade_prompt = self._get_grade_prompt(grade)
+        system_prompt = self.solve_prompt + grade_prompt
+
         content.append({"type": "text", "text": user_text})
 
         message = await self.client.messages.create(
             model=model_id,
-            max_tokens=4096,
-            system=self.solve_prompt,
+            max_tokens=8192,
+            system=system_prompt,
             messages=[{"role": "user", "content": content}],
         )
         raw_text = message.content[0].text
         usage1 = _make_usage_info(message, model_id)
 
-        # 2차 정제
+        # 2차 검증 (계산 재검산 + 형식 정리)
         cleaned_text, usage2 = await self._cleanup_output(raw_text, model_id)
         processed_text, graphs = process_graphs_in_text(cleaned_text)
 
         total_usage = _merge_usage(usage1, usage2)
         return {"text": processed_text, "graphs": graphs, "usage": total_usage}
 
-    async def solve_variant(self, images: list[dict], model: str = "sonnet") -> dict:
+    async def solve_variant(self, images: list[dict], model: str = "sonnet", custom_prompt: str = "", grade: str = "none") -> dict:
         """변형문항 풀이 생성"""
         content = self._make_image_content(images)
         model_id = self._get_model(model)
-        content.append({
-            "type": "text",
-            "text": "첫 번째 이미지는 원본 문제, 두 번째는 원본 해설, 세 번째는 변형문항입니다. "
-                    "원본 문제와 해설은 정확합니다. "
-                    "세 번째 이미지의 변형문항을 그대로 두고, 풀이만 작성해주세요. "
-                    "변형문항의 내용을 절대 수정하지 마세요. 문제는 그대로, 풀이만 쓰는 겁니다. "
-                    "원본 해설의 풀이 형식(단계별 계산, 수식 표기)을 참고하되, "
-                    "변형문항이 묻는 것에 맞게 풀이를 작성하세요. "
-                    "예: 원본이 '옳은 것은?'이고 변형이 '옳지 않은 것은?'이면, 각 보기를 검토한 뒤 틀린 것을 찾는 풀이를 써야 합니다.",
-        })
+
+        user_text = (
+            "첫 번째 이미지는 원본 문제, 두 번째는 원본 해설, 세 번째는 변형문항입니다. "
+            "원본 문제와 해설은 정확합니다. "
+            "세 번째 이미지의 변형문항을 그대로 두고, 풀이만 작성해주세요. "
+            "변형문항의 내용을 절대 수정하지 마세요. 문제는 그대로, 풀이만 쓰는 겁니다. "
+            "원본 해설의 풀이 형식(단계별 계산, 수식 표기)을 참고하되, "
+            "변형문항이 묻는 것에 맞게 풀이를 작성하세요. "
+            "예: 원본이 '옳은 것은?'이고 변형이 '옳지 않은 것은?'이면, 각 보기를 검토한 뒤 틀린 것을 찾는 풀이를 써야 합니다."
+        )
+        if custom_prompt:
+            user_text += f"\n\n★ 추가 지시사항: {custom_prompt}"
+
+        content.append({"type": "text", "text": user_text})
+
+        grade_prompt = self._get_grade_prompt(grade)
+        system_prompt = self.variant_solve_prompt + grade_prompt
 
         message = await self.client.messages.create(
             model=model_id,
-            max_tokens=4096,
-            system=self.variant_solve_prompt,
+            max_tokens=8192,
+            system=system_prompt,
             messages=[{"role": "user", "content": content}],
         )
-        text = message.content[0].text
-        processed_text, graphs = process_graphs_in_text(text)
+        raw_text = message.content[0].text
+        usage1 = _make_usage_info(message, model_id)
+
+        # 2차 검증 (계산 재검산 + 정답 확인)
+        verified_text, usage2 = await self._verify_solve_output(raw_text, model_id)
+        processed_text, graphs = process_graphs_in_text(verified_text)
+
+        total_usage = _merge_usage(usage1, usage2)
         return {
             "text": processed_text,
             "graphs": graphs,
-            "usage": _make_usage_info(message, model_id),
+            "usage": total_usage,
         }
 
-    async def generate_variant_from_text(self, text_content: str, variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "") -> dict:
+    async def generate_variant_from_text(self, text_content: str, variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "", grade: str = "none") -> dict:
         """HWPX에서 추출한 텍스트로 유사문항 생성"""
         model_id = self._get_model(model)
 
@@ -228,23 +309,26 @@ class ClaudeService:
         if custom_prompt:
             user_text += f"\n\n★ 추가 지시사항: {custom_prompt}"
 
+        grade_prompt = self._get_grade_prompt(grade)
+        system_prompt = self.solve_prompt + grade_prompt
+
         message = await self.client.messages.create(
             model=model_id,
-            max_tokens=4096,
-            system=self.solve_prompt,
+            max_tokens=8192,
+            system=system_prompt,
             messages=[{"role": "user", "content": user_text}],
         )
         raw_text = message.content[0].text
         usage1 = _make_usage_info(message, model_id)
 
-        # 2차 정제
+        # 2차 검증
         cleaned_text, usage2 = await self._cleanup_output(raw_text, model_id)
         processed_text, graphs = process_graphs_in_text(cleaned_text)
 
         total_usage = _merge_usage(usage1, usage2)
         return {"text": processed_text, "graphs": graphs, "usage": total_usage}
 
-    async def solve_variant_from_text(self, text_content: str, model: str = "sonnet") -> dict:
+    async def solve_variant_from_text(self, text_content: str, model: str = "sonnet", grade: str = "none") -> dict:
         """HWPX에서 추출한 텍스트로 변형문항 해설 작성"""
         model_id = self._get_model(model)
 
@@ -258,18 +342,27 @@ class ClaudeService:
             f"{text_content}"
         )
 
+        grade_prompt = self._get_grade_prompt(grade)
+        system_prompt = self.variant_solve_prompt + grade_prompt
+
         message = await self.client.messages.create(
             model=model_id,
-            max_tokens=4096,
-            system=self.variant_solve_prompt,
+            max_tokens=8192,
+            system=system_prompt,
             messages=[{"role": "user", "content": user_text}],
         )
-        text = message.content[0].text
-        processed_text, graphs = process_graphs_in_text(text)
+        raw_text = message.content[0].text
+        usage1 = _make_usage_info(message, model_id)
+
+        # 2차 검증
+        verified_text, usage2 = await self._verify_solve_output(raw_text, model_id)
+        processed_text, graphs = process_graphs_in_text(verified_text)
+
+        total_usage = _merge_usage(usage1, usage2)
         return {
             "text": processed_text,
             "graphs": graphs,
-            "usage": _make_usage_info(message, model_id),
+            "usage": total_usage,
         }
 
     async def refine(self, original_result: str, instruction: str, model: str = "sonnet") -> dict:
@@ -278,7 +371,7 @@ class ClaudeService:
 
         message = await self.client.messages.create(
             model=model_id,
-            max_tokens=4096,
+            max_tokens=8192,
             system=self.solve_prompt,
             messages=[
                 {"role": "user", "content": "아래 유사문항과 풀이를 생성했습니다:\n\n" + original_result},
@@ -293,6 +386,129 @@ class ClaudeService:
             "graphs": graphs,
             "usage": _make_usage_info(message, model_id),
         }
+
+    async def process_scan(self, ocr_data: dict, mode: str, variant_count: int, model: str, grade: str) -> dict:
+        """스캔본 처리: LaTeX OCR → HWP 변환 + 해설 작성(필요시) + 유사문항 생성.
+
+        ocr_data:
+          일반 모드: {"problem", "solution", "has_solution", "problem_number"}
+          학생 모드: {"printed", "handwriting", "has_solution", "solution", "student_answer"}
+        """
+        model_id = self._get_model(model)
+        grade_prompt = self._get_grade_prompt(grade)
+
+        if mode == "student":
+            problem_text = ocr_data.get("printed", "")
+            handwriting_text = ocr_data.get("handwriting", "")
+            has_solution = ocr_data.get("has_solution", False)
+            solution_text = ocr_data.get("solution") or ""
+            student_answer = ocr_data.get("student_answer", "")
+
+            ocr_summary = f"【인쇄된 문제】\n{problem_text}"
+            if handwriting_text:
+                ocr_summary += f"\n\n【학생 손필기】\n{handwriting_text}"
+            if student_answer:
+                ocr_summary += f"\n\n【학생 최종 답】\n{student_answer}"
+        else:
+            problem_text = ocr_data.get("problem", "")
+            has_solution = ocr_data.get("has_solution", False)
+            solution_text = ocr_data.get("solution") or ""
+            problem_number = ocr_data.get("problem_number", "")
+
+            ocr_summary = f"【문제】\n{problem_text}"
+            if problem_number:
+                ocr_summary = f"【문제 번호】{problem_number}\n" + ocr_summary
+            if has_solution and solution_text:
+                ocr_summary += f"\n\n【해설】\n{solution_text}"
+
+        needs_solution = not has_solution or not solution_text.strip()
+
+        user_text = (
+            f"아래는 스캔 이미지에서 추출한 수학 문제입니다 (수식은 LaTeX 형식).\n\n"
+            f"{ocr_summary}\n\n"
+            f"다음을 수행하세요:\n\n"
+            f"1. 【HWP 변환】 문제 텍스트의 모든 수식을 한글 수식입력기 코드(대괄호 형식)로 변환하세요.\n"
+        )
+
+        if needs_solution:
+            user_text += (
+                f"2. 【해설 작성】 위 문제의 풀이와 정답을 작성하세요. "
+                f"단계별로 계산 과정을 상세히 보여주세요.\n"
+            )
+            solution_step = "2"
+            variant_step = "3"
+        else:
+            user_text += (
+                f"2. 【해설 변환】 제공된 해설의 수식도 한글 수식입력기 코드로 변환하세요.\n"
+            )
+            solution_step = None
+            variant_step = "3"
+
+        user_text += (
+            f"{variant_step}. 【유사문항 생성】 이 문제를 기반으로 유사문항 {variant_count}개를 생성하세요. "
+            f"각 유사문항마다 풀이와 정답도 포함하세요.\n\n"
+        )
+
+        user_text += (
+            f"출력 형식 (반드시 이 태그만 사용):\n"
+            f"-문제-\n(HWP 형식으로 변환된 문제)\n\n"
+            f"-해설-\n(해설 내용)\n\n"
+            f"-정답-\n(정답)\n\n"
+        )
+        for i in range(1, variant_count + 1):
+            user_text += (
+                f"-유사문항{i}-\n(유사문항 {i} 내용)\n\n"
+                f"-유사해설{i}-\n(유사문항 {i} 해설)\n\n"
+                f"-유사정답{i}-\n(유사문항 {i} 정답)\n\n"
+            )
+
+        system_prompt = self.solve_prompt + grade_prompt
+
+        message = await self.client.messages.create(
+            model=model_id,
+            max_tokens=8192,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_text}],
+        )
+        raw_text = message.content[0].text
+        usage1 = _make_usage_info(message, model_id)
+
+        # 검증 패스
+        cleaned_text, usage2 = await self._cleanup_scan_output(raw_text, model_id, variant_count)
+        processed_text, graphs = process_graphs_in_text(cleaned_text)
+
+        total_usage = _merge_usage(usage1, usage2)
+        return {
+            "text": processed_text,
+            "graphs": graphs,
+            "usage": total_usage,
+            "ocr_data": ocr_data,
+            "mode": mode,
+        }
+
+    async def _cleanup_scan_output(self, raw_text: str, model_id: str, variant_count: int) -> tuple[str, dict]:
+        """스캔 처리 결과 검증: 계산 재검산 + 형식 정리."""
+        tags = "-문제-, -해설-, -정답-"
+        for i in range(1, variant_count + 1):
+            tags += f", -유사문항{i}-, -유사해설{i}-, -유사정답{i}-"
+
+        verify_prompt = (
+            f"아래는 스캔 문제 처리 결과입니다. 다음을 수행하세요:\n\n"
+            f"1. 각 해설의 계산을 독립적으로 재검산하여 오류가 있으면 수정\n"
+            f"2. 정답 태그와 해설의 최종 답이 일치하는지 확인\n"
+            f"3. 내부 사고 과정(STEP, ##, **, ✓ 등) 제거\n"
+            f"4. 수식 대괄호 [ ] 형식 유지 (절대 $...$ LaTeX로 바꾸지 말 것)\n\n"
+            f"출력 형식: {tags} 태그만 사용.\n\n"
+            f"--- 원본 ---\n{raw_text}"
+        )
+
+        message = await self.client.messages.create(
+            model=model_id,
+            max_tokens=8192,
+            system="당신은 고등학교 수학 검토 전문가입니다. 계산을 재수행하여 오류를 수정합니다. 수식 [ ] 형식을 절대 변경하지 마세요.",
+            messages=[{"role": "user", "content": verify_prompt}],
+        )
+        return message.content[0].text, _make_usage_info(message, model_id)
 
     async def process_feedback(self, feedback: str) -> str:
         """사용자 피드백을 프롬프트 규칙으로 변환"""

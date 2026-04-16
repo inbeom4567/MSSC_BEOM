@@ -9,6 +9,7 @@ from pathlib import Path
 from services.claude_service import ClaudeService
 from services import history_service
 from services.hwpx_service import read_hwpx, create_hwpx, split_problems
+from services.gemini_service import analyze_graph, recognize_handwriting, ocr_scan_general, ocr_scan_student_paper
 import asyncio
 from fastapi.responses import Response
 import uuid
@@ -76,12 +77,13 @@ async def generate_variant(
     difficulty: str = "similar",
     model: str = "sonnet",
     custom_prompt: str = "",
+    grade: str = "none",
 ):
-    logger.info(f"유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}, custom={custom_prompt[:30] if custom_prompt else 'none'}")
+    logger.info(f"유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}, grade={grade}, custom={custom_prompt[:30] if custom_prompt else 'none'}")
     images = _parse_files(await _read_files(files))
 
     try:
-        data = await claude_service.generate_variant(images, variant_type, difficulty, model, custom_prompt)
+        data = await claude_service.generate_variant(images, variant_type, difficulty, model, custom_prompt, grade)
         logger.info(f"유사문항 생성 완료: {data['usage']['total_tokens']} tokens")
 
         entry_id = history_service.save_history({
@@ -101,12 +103,12 @@ async def generate_variant(
 
 
 @app.post("/api/solve-variant")
-async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonnet"):
+async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonnet", grade: str = "none", custom_prompt: str = ""):
     logger.info(f"변형문항 풀이 요청: model={model}")
     images = _parse_files(await _read_files(files))
 
     try:
-        data = await claude_service.solve_variant(images, model)
+        data = await claude_service.solve_variant(images, model, custom_prompt, grade)
         logger.info(f"변형문항 풀이 완료: {data['usage']['total_tokens']} tokens")
 
         entry_id = history_service.save_history({
@@ -201,6 +203,7 @@ async def hwpx_generate(
     difficulty: str = "similar",
     model: str = "sonnet",
     custom_prompt: str = "",
+    grade: str = "none",
 ):
     """HWPX 파일로 유사문항 생성"""
     logger.info(f"HWPX 유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}")
@@ -210,7 +213,7 @@ async def hwpx_generate(
         text_content = read_hwpx(file_bytes)
         logger.info(f"HWPX 파싱 완료: {len(text_content)}자")
 
-        data = await claude_service.generate_variant_from_text(text_content, variant_type, difficulty, model, custom_prompt)
+        data = await claude_service.generate_variant_from_text(text_content, variant_type, difficulty, model, custom_prompt, grade)
         logger.info(f"HWPX 유사문항 생성 완료: {data['usage']['total_tokens']} tokens")
 
         # HWPX 출력 파일 생성
@@ -242,6 +245,7 @@ async def hwpx_generate(
 async def hwpx_solve(
     file: UploadFile = File(...),
     model: str = "sonnet",
+    grade: str = "none",
 ):
     """HWPX 파일로 변형문항 해설 작성 (문제+해설+유사문제 포함)"""
     logger.info(f"HWPX 변형문항 해설: model={model}")
@@ -251,7 +255,7 @@ async def hwpx_solve(
         text_content = read_hwpx(file_bytes)
         logger.info(f"HWPX 파싱 완료: {len(text_content)}자")
 
-        data = await claude_service.solve_variant_from_text(text_content, model)
+        data = await claude_service.solve_variant_from_text(text_content, model, grade)
         logger.info(f"HWPX 변형문항 해설 완료: {data['usage']['total_tokens']} tokens")
 
         hwpx_bytes = create_hwpx(data["text"], file_bytes)
@@ -283,6 +287,7 @@ async def hwpx_batch(
     model: str = "sonnet",
     custom_prompt: str = "",
     selected_numbers: str = "",  # "1,2,3" 또는 "" (전체)
+    grade: str = "none",
 ):
     """HWPX 파일에서 선택된 문제들의 유사문항 생성"""
     logger.info(f"HWPX 일괄 처리: type={variant_type}, difficulty={difficulty}, model={model}, selected={selected_numbers}")
@@ -305,7 +310,7 @@ async def hwpx_batch(
         for prob in problems:
             logger.info(f"  문제 {prob['number']}번 처리 중...")
             data = await claude_service.generate_variant_from_text(
-                prob["text"], variant_type, difficulty, model, custom_prompt
+                prob["text"], variant_type, difficulty, model, custom_prompt, grade
             )
             results.append({
                 "number": prob["number"],
@@ -348,6 +353,86 @@ async def hwpx_batch(
         }
     except Exception as e:
         logger.error(f"HWPX 일괄 처리 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scan-process")
+async def scan_process(
+    files: List[UploadFile] = File(...),
+    mode: str = "general",          # "general" | "student"
+    variant_count: int = 1,         # 1 또는 2
+    model: str = "sonnet",
+    grade: str = "none",
+):
+    """스캔본 처리: OCR → HWP 변환 + 해설 작성 + 유사문항 생성"""
+    logger.info(f"스캔 처리: mode={mode}, variants={variant_count}, model={model}")
+
+    if not files:
+        raise HTTPException(status_code=400, detail="이미지를 업로드하세요.")
+
+    try:
+        file = files[0]
+        data = await file.read()
+        img_b64 = base64.b64encode(data).decode("utf-8")
+        content_type = file.content_type or "image/jpeg"
+
+        # Gemini OCR
+        if mode == "student":
+            ocr_data = ocr_scan_student_paper(img_b64, content_type)
+        else:
+            ocr_data = ocr_scan_general(img_b64, content_type)
+
+        logger.info(f"OCR 완료: has_solution={ocr_data.get('has_solution', False)}")
+
+        # Claude 처리
+        result = await claude_service.process_scan(ocr_data, mode, variant_count, model, grade)
+        logger.info(f"스캔 처리 완료: {result['usage']['total_tokens']} tokens")
+
+        entry_id = history_service.save_history({
+            "type": "scan",
+            "mode": mode,
+            "model": model,
+            "result": result["text"],
+            "usage": result["usage"],
+        })
+
+        return {
+            "result": result["text"],
+            "graphs": result.get("graphs", []),
+            "usage": result["usage"],
+            "ocr_data": result["ocr_data"],
+            "history_id": entry_id,
+        }
+    except Exception as e:
+        logger.error(f"스캔 처리 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analyze-image")
+async def analyze_image_endpoint(file: UploadFile = File(...)):
+    """원본 문제 이미지에서 그래프/그림을 분석하여 구조화된 데이터 반환"""
+    logger.info(f"이미지 분석 요청: {file.filename}")
+    try:
+        data = await file.read()
+        img_b64 = base64.b64encode(data).decode("utf-8")
+        result = analyze_graph(img_b64, file.content_type)
+        return {"analysis": result}
+    except Exception as e:
+        logger.error(f"이미지 분석 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/recognize-handwriting")
+async def recognize_handwriting_endpoint(file: UploadFile = File(...)):
+    """손필기 이미지에서 수식/텍스트 인식"""
+    logger.info(f"손필기 인식 요청: {file.filename}")
+    try:
+        data = await file.read()
+        img_b64 = base64.b64encode(data).decode("utf-8")
+        result = recognize_handwriting(img_b64, file.content_type)
+        return {"recognition": result}
+    except Exception as e:
+        logger.error(f"손필기 인식 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
