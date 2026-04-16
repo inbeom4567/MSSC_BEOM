@@ -7,3 +7,5 @@ __pycache__/
 docs/.pdca-status.json
 docs/.bkit-memory.json
 backend/history/
+.gstack/
+.worktrees/
