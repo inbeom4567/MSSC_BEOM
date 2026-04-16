@@ -329,7 +329,15 @@ def detect_problem_bboxes(image_base64: str, media_type: str) -> list:
         bboxes = json.loads(json_match)
         if not isinstance(bboxes, list):
             return []
-        return bboxes
-    except (json.JSONDecodeError, KeyError):
+        required = {"x", "y", "w", "h"}
+        valid = [b for b in bboxes if isinstance(b, dict) and required.issubset(b.keys())]
+        # clamp values to 0.0-1.0
+        for b in valid:
+            b["x"] = max(0.0, min(1.0, float(b["x"])))
+            b["y"] = max(0.0, min(1.0, float(b["y"])))
+            b["w"] = max(0.0, min(1.0, float(b["w"])))
+            b["h"] = max(0.0, min(1.0, float(b["h"])))
+        return valid
+    except json.JSONDecodeError:
         logger.warning(f"bbox 감지 JSON 파싱 실패: {text[:200]}")
         return []
