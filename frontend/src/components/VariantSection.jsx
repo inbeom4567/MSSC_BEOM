@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import SolutionDisplay from './SolutionDisplay'
 
-const API = 'http://localhost:8001'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
 const DIFFICULTIES = [
   { value: 'similar', label: '비슷하게' },

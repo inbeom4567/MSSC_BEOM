@@ -11,17 +11,27 @@ from services import history_service
 from services.hwpx_service import read_hwpx, create_hwpx, split_problems
 from services.gemini_service import analyze_graph, recognize_handwriting, ocr_scan_general, ocr_scan_student_paper
 import asyncio
+import time
 from fastapi.responses import Response
 import uuid
 
-# 임시 HWPX 파일 저장
-_hwpx_store = {}
+# 임시 HWPX 파일 저장 (TTL 1시간)
+_hwpx_store = {}  # {id: {"data": bytes, "created_at": float}}
+
+
+def _cleanup_store():
+    """1시간 이상 된 항목 삭제."""
+    cutoff = time.time() - 3600
+    expired = [k for k, v in _hwpx_store.items() if v["created_at"] < cutoff]
+    for k in expired:
+        del _hwpx_store[k]
 
 
 def _store_hwpx(hwpx_bytes: bytes) -> dict:
     """HWPX 바이트를 저장하고 download_id 반환."""
+    _cleanup_store()
     download_id = str(uuid.uuid4())[:8]
-    _hwpx_store[download_id] = hwpx_bytes
+    _hwpx_store[download_id] = {"data": hwpx_bytes, "created_at": time.time()}
     return {"download_id": download_id}
 
 logging.basicConfig(level=logging.INFO)
@@ -60,7 +70,8 @@ async def health_check():
 @app.get("/api/hwpx-download/{download_id}")
 async def download_hwpx(download_id: str):
     """저장된 HWPX 파일 직접 다운로드."""
-    hwpx_bytes = _hwpx_store.pop(download_id, None)
+    entry = _hwpx_store.pop(download_id, None)
+    hwpx_bytes = entry["data"] if entry else None
     if not hwpx_bytes:
         raise HTTPException(status_code=404, detail="파일을 찾을 수 없습니다.")
     return Response(
@@ -304,14 +315,20 @@ async def hwpx_batch(
             problems = [p for p in problems if p['number'] in selected]
             logger.info(f"선택된 문제: {selected}, 처리할 문제: {len(problems)}개")
 
-        results = []
         total_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost_usd": 0, "cost_krw": 0, "model": ""}
 
-        for prob in problems:
-            logger.info(f"  문제 {prob['number']}번 처리 중...")
-            data = await claude_service.generate_variant_from_text(
+        # 병렬 처리: 선택된 문제들을 동시에 Claude API 호출
+        logger.info(f"  {len(problems)}개 문제 병렬 처리 시작...")
+        tasks = [
+            claude_service.generate_variant_from_text(
                 prob["text"], variant_type, difficulty, model, custom_prompt, grade
             )
+            for prob in problems
+        ]
+        all_data = await asyncio.gather(*tasks)
+
+        results = []
+        for prob, data in zip(problems, all_data):
             results.append({
                 "number": prob["number"],
                 "result": data["text"],

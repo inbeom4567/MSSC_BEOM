@@ -16,7 +16,9 @@
       "WebSearch",
       "WebFetch(domain:docs.nanobananaapi.ai)",
       "WebFetch(domain:nanobanana.im)",
-      "WebFetch(domain:ai.google.dev)"
+      "WebFetch(domain:ai.google.dev)",
+      "Skill(qa)",
+      "Skill(qa:*)"
     ]
   },
   "hooks": {

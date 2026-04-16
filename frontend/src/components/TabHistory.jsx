@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import SolutionDisplay from './SolutionDisplay'
 import UsageInfo from './UsageInfo'
 
-const API = 'http://localhost:8001'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
 const TYPE_LABELS = { generate: '유사문항 생성', solve: '변형문항 풀이', refine: '수정' }
 const DIFF_LABELS = { easier: '더 쉽게', similar: '비슷하게', harder: '더 어렵게' }
@@ -13,7 +13,6 @@ export default function TabHistory() {
   const [selected, setSelected] = useState(null)
   const [compareId, setCompareId] = useState(null)
   const [compareData, setCompareData] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
 
   const fetchList = async () => {
     const res = await fetch(`${API}/api/history`)
@@ -53,7 +52,7 @@ export default function TabHistory() {
   return (
     <div className="space-y-4">
       {items.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-gray-400 dark:text-[#444A6E]">
           아직 히스토리가 없습니다. 유사문항을 생성하면 자동으로 저장됩니다.
         </div>
       ) : (
@@ -65,60 +64,61 @@ export default function TabHistory() {
                 onClick={() => isCompareMode && selected?.id !== item.id ? handleCompare(item.id) : handleSelect(item.id)}
                 className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                   selected?.id === item.id
-                    ? 'border-blue-500 bg-blue-50'
+                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
                     : compareId === item.id
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 bg-white hover:bg-gray-50'
+                    ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10'
+                    : 'border-gray-200 dark:border-[#222644] bg-white dark:bg-[#11131F] hover:bg-gray-50 dark:hover:bg-[#191C2E]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      item.model?.includes('opus') ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'
+                      item.model?.includes('opus')
+                        ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300'
+                        : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300'
                     }`}>
                       {item.model?.includes('opus') ? 'Opus' : 'Sonnet'}
                     </span>
-                    <span className="text-xs text-gray-500">{TYPE_LABELS[item.type] || item.type}</span>
+                    <span className="text-xs text-gray-500 dark:text-[#7880AA]">{TYPE_LABELS[item.type] || item.type}</span>
                     {item.variant_type && (
-                      <span className="text-xs text-gray-400">{VTYPE_LABELS[item.variant_type]}</span>
+                      <span className="text-xs text-gray-400 dark:text-[#444A6E]">{VTYPE_LABELS[item.variant_type]}</span>
                     )}
                     {item.difficulty && (
-                      <span className="text-xs text-gray-400">{DIFF_LABELS[item.difficulty]}</span>
+                      <span className="text-xs text-gray-400 dark:text-[#444A6E]">{DIFF_LABELS[item.difficulty]}</span>
                     )}
                     {item.cost_krw > 0 && (
-                      <span className="text-xs text-gray-400">약 {item.cost_krw.toLocaleString()}원</span>
+                      <span className="text-xs text-gray-400 dark:text-[#444A6E]">약 {item.cost_krw.toLocaleString()}원</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-400 dark:text-[#444A6E]">
                       {new Date(item.created_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <button
                       onClick={(e) => handleDelete(item.id, e)}
-                      className="text-gray-300 hover:text-red-500 text-xs transition-colors"
+                      className="text-gray-300 dark:text-[#2E3356] hover:text-red-500 dark:hover:text-red-400 text-xs transition-colors"
                     >
                       삭제
                     </button>
                   </div>
                 </div>
                 {item.custom_prompt && (
-                  <p className="text-xs text-amber-600 mt-1 truncate">지시: {item.custom_prompt}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 truncate">지시: {item.custom_prompt}</p>
                 )}
-                <p className="text-sm text-gray-600 mt-1 truncate">{item.preview}</p>
+                <p className="text-sm text-gray-600 dark:text-[#7880AA] mt-1 truncate">{item.preview}</p>
                 {isCompareMode && selected?.id !== item.id && compareId !== item.id && (
-                  <p className="text-xs text-blue-500 mt-1">클릭하여 비교</p>
+                  <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">클릭하여 비교</p>
                 )}
               </div>
             ))}
           </div>
 
           {isCompareMode && !compareData && (
-            <p className="text-center text-sm text-blue-500">다른 항목을 클릭하면 비교할 수 있습니다</p>
+            <p className="text-center text-sm text-indigo-500 dark:text-indigo-400">다른 항목을 클릭하면 비교할 수 있습니다</p>
           )}
         </>
       )}
 
-      {/* 단일 보기 또는 비교 보기 */}
       {selected && !compareData && (
         <div>
           <SolutionDisplay solution={selected.result} title={TYPE_LABELS[selected.type] || '결과'} />
@@ -131,11 +131,13 @@ export default function TabHistory() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                selected.model?.includes('opus') ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'
+                selected.model?.includes('opus')
+                  ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300'
+                  : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300'
               }`}>
                 {selected.model?.includes('opus') ? 'Opus' : 'Sonnet'}
               </span>
-              <span className="text-xs text-gray-500">{new Date(selected.created_at).toLocaleString('ko-KR')}</span>
+              <span className="text-xs text-gray-500 dark:text-[#7880AA]">{new Date(selected.created_at).toLocaleString('ko-KR')}</span>
             </div>
             <SolutionDisplay solution={selected.result} title="A" />
             <UsageInfo usage={selected.usage} />
@@ -143,11 +145,13 @@ export default function TabHistory() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                compareData.model?.includes('opus') ? 'bg-purple-100 text-purple-700' : 'bg-sky-100 text-sky-700'
+                compareData.model?.includes('opus')
+                  ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300'
+                  : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300'
               }`}>
                 {compareData.model?.includes('opus') ? 'Opus' : 'Sonnet'}
               </span>
-              <span className="text-xs text-gray-500">{new Date(compareData.created_at).toLocaleString('ko-KR')}</span>
+              <span className="text-xs text-gray-500 dark:text-[#7880AA]">{new Date(compareData.created_at).toLocaleString('ko-KR')}</span>
             </div>
             <SolutionDisplay solution={compareData.result} title="B" />
             <UsageInfo usage={compareData.usage} />

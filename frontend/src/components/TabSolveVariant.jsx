@@ -3,7 +3,7 @@ import ImageUploadBox from './ImageUploadBox'
 import SolutionDisplay from './SolutionDisplay'
 import UsageInfo from './UsageInfo'
 
-const API = 'http://localhost:8001'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
 export default function TabSolveVariant({ grade, model, guidelines }) {
   const [problemPreview, setProblemPreview] = useState(null)
@@ -98,24 +98,28 @@ export default function TabSolveVariant({ grade, model, guidelines }) {
       </div>
 
       {ready && (
-        <div className="flex gap-3 justify-center">
+        <div className="flex gap-2.5 justify-center">
           <button onClick={handleSolve} disabled={isLoading}
-            className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
-            {isLoading ? '해설 작성 중... (30초~1분)' : '해설 작성'}
+            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg font-semibold text-sm hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 transition-all shadow-[0_2px_12px_rgba(108,127,255,0.25)]">
+            {isLoading ? '해설 작성 중... (30초~1분)' : '✦ 해설 작성'}
           </button>
           <button onClick={handleReset}
-            className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
+            className="px-5 py-2.5 bg-gray-100 dark:bg-[#191C2E] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-[#212540] transition-colors">
             초기화
           </button>
         </div>
       )}
 
-      {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+      {error && (
+        <div className="p-3 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-lg text-sm border border-red-200 dark:border-red-500/20">
+          {error}
+        </div>
+      )}
 
       {isLoading && (
-        <div className="text-center py-6">
-          <div className="inline-block w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
-          <p className="text-gray-500 text-sm mt-3">원본 해설 방향 그대로 변형문항 풀이 작성 중...</p>
+        <div className="text-center py-10">
+          <div className="inline-block w-8 h-8 border-[3px] border-indigo-200 dark:border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+          <p className="text-gray-400 dark:text-[#7880AA] text-sm mt-3">원본 해설 방향 그대로 변형문항 풀이 작성 중...</p>
         </div>
       )}
 

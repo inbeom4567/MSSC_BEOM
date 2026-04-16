@@ -1,0 +1,45 @@
+{
+  "line": {
+    "curve_width_pt": 1.5,
+    "axis_width_pt": 1.0,
+    "dashed_width_pt": 0.5,
+    "curve_style": "smooth solid black"
+  },
+  "arrow": {
+    "shape": "filled triangle",
+    "head_width_relative": 0.03,
+    "head_length_relative": 0.04,
+    "description": "small sharp filled triangle at axis tips"
+  },
+  "font": {
+    "math_font": "Computer Modern italic",
+    "function_label_pt": 12,
+    "point_label_pt": 12,
+    "axis_label_pt": 13,
+    "number_label_pt": 11,
+    "origin_label": "O in roman/upright font"
+  },
+  "label_placement": {
+    "function_label_position": "near curve end, offset perpendicular to curve, not overlapping",
+    "point_label_position": "immediately adjacent to dot, upper-right preferred",
+    "origin_O_position": "just below-left of origin intersection",
+    "x_label_position": "right end of x-axis, slightly below",
+    "y_label_position": "top of y-axis, slightly left",
+    "number_on_axis": "on axis tick marks, outside the graph area"
+  },
+  "colors": {
+    "lines": "black only",
+    "shading": "light gray fill",
+    "background": "pure white"
+  },
+  "geometry_style": {
+    "right_angle_mark": "small square",
+    "circle_style": "thin black outline",
+    "polygon_style": "thin black lines connecting labeled vertices"
+  },
+  "overall": {
+    "aspect_ratio": "approximately square or slightly wider",
+    "margin": "minimal, axes extend slightly beyond data",
+    "impression": "clean, precise, professional, and consistent scientific/technical aesthetic"
+  }
+}

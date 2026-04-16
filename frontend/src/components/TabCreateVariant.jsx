@@ -3,7 +3,7 @@ import ImageUploadBox from './ImageUploadBox'
 import SolutionDisplay from './SolutionDisplay'
 import UsageInfo from './UsageInfo'
 
-const API = 'http://localhost:8001'
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
 const TYPES = [
   { value: 'number', label: '숫자 변형' },

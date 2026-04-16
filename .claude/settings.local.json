@@ -28,7 +28,19 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "WebFetch(domain:questi.kr)",
+      "WebFetch(domain:play.google.com)",
+      "WebFetch(domain:apps.apple.com)",
+      "Bash(start *)",
+      "Skill(plan-devex-review)",
+      "Bash(git check-ignore *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git diff *)",
+      "Bash(npm test *)",
+      "Bash(npx vitest *)",
+      "Bash(~/.claude/skills/gstack/bin/gstack-timeline-log '{\"skill\":\"using-git-worktrees\",\"event\":\"completed\",\"branch\":\"main\",\"outcome\":\"worktree created at .worktrees/hwp-latex-unify\"}')"
     ],
     "additionalDirectories": [
       "c:\\Users\\tnaak\\OneDrive\\바탕 화면\\MathSolution\\.claude"

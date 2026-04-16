@@ -2,8 +2,8 @@ import { useMemo } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
-// HWP 수식 코드 → LaTeX 변환
-function hwpToLatex(hwp) {
+// HWP 수식 코드 → LaTeX 변환 (공유 유틸)
+export function hwpToLatex(hwp) {
   let s = (hwp || '').trim()
 
   // 백틱 연산자 처리: `^` → ^, `_` → _
