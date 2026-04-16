@@ -4,7 +4,7 @@ WORKDIR /app
 
 # 한글 폰트 설치 (matplotlib 그래프용)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends fonts-nanum fontconfig && \
+    apt-get install -y --no-install-recommends fonts-nanum fontconfig libgl1 libglib2.0-0 && \
     rm -rf /var/lib/apt/lists/* && \
     fc-cache -fv
 
