@@ -281,3 +281,55 @@ def ocr_scan_student_paper(image_base64: str, media_type: str) -> dict:
             "solution": None,
             "student_answer": "",
         }
+
+
+def detect_problem_bboxes(image_base64: str, media_type: str) -> list:
+    """수학 문제지 이미지에서 각 문제 영역의 bounding box를 비율 좌표로 반환.
+
+    Returns:
+        list: [{"x": 0.05, "y": 0.03, "w": 0.90, "h": 0.18}, ...]
+              좌표는 이미지 크기 대비 비율값(0.0 ~ 1.0)
+              x, y는 박스 왼쪽 상단 모서리
+    """
+    prompt = """이 수학 문제지 이미지에서 각 문제의 영역을 감지하세요.
+반드시 아래 JSON 배열 형식으로만 응답하세요.
+
+[
+  {"x": 0.05, "y": 0.03, "w": 0.90, "h": 0.18},
+  {"x": 0.05, "y": 0.24, "w": 0.90, "h": 0.22}
+]
+
+규칙:
+- 좌표는 이미지 전체 크기 대비 비율값(0.0 ~ 1.0)
+- x, y는 박스의 왼쪽 상단 모서리 위치
+- w는 박스 너비, h는 박스 높이
+- 문제 번호, 지문, 조건, 보기를 모두 포함하는 넉넉한 영역으로 잡기
+- 문제가 없으면 빈 배열 [] 반환
+- JSON 배열만 출력, 다른 텍스트 없이"""
+
+    payload = {
+        "contents": [{
+            "parts": [
+                {"inline_data": {"mime_type": media_type, "data": image_base64}},
+                {"text": prompt},
+            ]
+        }]
+    }
+
+    result = _call_gemini(GEMINI_MODEL_ANALYZE, payload)
+    text = result["candidates"][0]["content"]["parts"][0]["text"]
+
+    try:
+        json_match = text
+        if "```" in text:
+            import re
+            m = re.search(r'```(?:json)?\s*(.*?)```', text, re.DOTALL)
+            if m:
+                json_match = m.group(1)
+        bboxes = json.loads(json_match)
+        if not isinstance(bboxes, list):
+            return []
+        return bboxes
+    except (json.JSONDecodeError, KeyError):
+        logger.warning(f"bbox 감지 JSON 파싱 실패: {text[:200]}")
+        return []
