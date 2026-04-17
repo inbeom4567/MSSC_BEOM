@@ -64,3 +64,17 @@ TabHwpx의 로컬 함수 제거 후 import로 교체.
 - 또는 GeoGebra 임베드
 
 **Depends on:** 그래프 생성 안정화 이후
+
+---
+
+## [ ] SSE 처리 중 네트워크 단절 시 부분 결과 복구
+
+**What:** `/api/scan-crop-process` SSE 스트리밍 중 네트워크 단절 시 완료된 문제의 결과를 복구할 수 있는 메커니즘.
+
+**Why:** PDF 10문항 일괄 처리 중 7번째에서 네트워크 끊기면 1~6번 결과가 유실됨. 교사 사용 환경에서 WiFi 불안정은 현실적인 시나리오.
+
+**Context:** 현재 SSE stream은 클라이언트 연결 끊김 감지 없이 계속 진행됨. 클라이언트는 재연결해도 이전 결과 접근 불가. 두 가지 접근 가능: (1) 프론트엔드 IndexedDB에 완료된 카드 상태를 persist해서 새로고침 후 복원, (2) 서버 측에 session_id로 중간 결과를 캐시해서 재요청 시 resume.
+
+**How to apply:** 프론트엔드 IndexedDB 접근이 구현 단순함 (서버 상태 없음). `cards` state가 업데이트될 때마다 IndexedDB에 저장, 마운트 시 불러옴. session_id는 파일명+timestamp 조합.
+
+**Depends on:** 스캔 크롭 워크플로우 기본 구현 완료 이후

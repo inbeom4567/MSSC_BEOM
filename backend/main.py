@@ -496,15 +496,17 @@ async def scan_detect(file: UploadFile = File(...)):
 async def scan_process(
     files: List[UploadFile] = File(...),
     mode: str = "general",          # "general" | "student"
+    output_mode: str = "variant",   # "variant" | "type_only" | "type_with_solution"
     variant_count: int = 1,         # 1 또는 2
     model: str = "sonnet",
     grade: str = "none",
+    page_range: str = "",           # 예) "1-3", "2", "" (전체)
 ):
-    """스캔본 처리: OCR → HWP 변환 + 해설 작성 + 유사문항 생성"""
-    logger.info(f"스캔 처리: mode={mode}, variants={variant_count}, model={model}")
+    """스캔본 처리: OCR → HWP 변환 (+ 해설/유사문항 output_mode에 따라)"""
+    logger.info(f"스캔 처리: mode={mode}, output_mode={output_mode}, variants={variant_count}, model={model}")
 
     if not files:
-        raise HTTPException(status_code=400, detail="이미지를 업로드하세요.")
+        raise HTTPException(status_code=400, detail="이미지 또는 PDF를 업로드하세요.")
 
     try:
         file = files[0]
@@ -516,20 +518,22 @@ async def scan_process(
         if mode == "student":
             ocr_data = ocr_scan_student_paper(img_b64, content_type)
         else:
-            ocr_data = ocr_scan_general(img_b64, content_type)
+            ocr_data = ocr_scan_general(img_b64, content_type, page_range)
 
         logger.info(f"OCR 완료: has_solution={ocr_data.get('has_solution', False)}")
 
         # Claude 처리
-        result = await claude_service.process_scan(ocr_data, mode, variant_count, model, grade)
+        result = await claude_service.process_scan(ocr_data, mode, variant_count, model, grade, output_mode)
         logger.info(f"스캔 처리 완료: {result['usage']['total_tokens']} tokens")
 
         entry_id = history_service.save_history({
             "type": "scan",
             "mode": mode,
+            "output_mode": output_mode,
             "model": model,
             "result": result["text"],
             "usage": result["usage"],
+            "ocr_data": ocr_data,
         })
 
         return {
@@ -537,6 +541,7 @@ async def scan_process(
             "graphs": result.get("graphs", []),
             "usage": result["usage"],
             "ocr_data": result["ocr_data"],
+            "output_mode": output_mode,
             "history_id": entry_id,
         }
     except Exception as e:
@@ -623,7 +628,7 @@ class ScanVariantRequest(BaseModel):
 
 @app.post("/api/scan-generate-variants")
 async def scan_generate_variants(req: ScanVariantRequest):
-    """OCR 데이터를 받아 유사문항 생성."""
+    """OCR 데이터를 받아 유사문항/해설 생성."""
     logger.info(f"스캔 유사문항 생성: mode={req.scan_mode}, variants={req.variant_count}, model={req.model}, output_mode={req.output_mode}")
     try:
         result = await claude_service.process_scan(
@@ -639,6 +644,7 @@ async def scan_generate_variants(req: ScanVariantRequest):
             "output_mode": req.output_mode,
             "result": result["text"],
             "usage": result["usage"],
+            "ocr_data": req.ocr_data,
         })
 
         return {
@@ -646,6 +652,7 @@ async def scan_generate_variants(req: ScanVariantRequest):
             "graphs": result.get("graphs", []),
             "usage": result["usage"],
             "ocr_data": result.get("ocr_data", {}),
+            "output_mode": req.output_mode,
             "history_id": entry_id,
         }
     except Exception as e:
@@ -672,6 +679,7 @@ async def text_to_hwpx(req: TextToHwpxRequest):
     except Exception as e:
         logger.error(f"HWPX 변환 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.post("/api/analyze-image")

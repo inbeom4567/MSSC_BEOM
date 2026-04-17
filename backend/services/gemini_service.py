@@ -16,7 +16,7 @@ GEMINI_MODEL_IMAGE = "gemini-2.5-flash-image"
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
-def _call_gemini(model: str, payload: dict, timeout: int = 120) -> dict:
+def _call_gemini(model: str, payload: dict, timeout: int = 300) -> dict:
     """Gemini API 호출 (동기)"""
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY가 설정되지 않았습니다. backend/.env 파일을 확인하세요.")
@@ -168,8 +168,10 @@ def recognize_handwriting(image_base64: str, media_type: str) -> dict:
         }
 
 
-def ocr_scan_general(image_base64: str, media_type: str) -> dict:
+def ocr_scan_general(image_base64: str, media_type: str, page_range: str = "") -> dict:
     """일반 스캔: 수학 문제/해설 텍스트 추출.
+
+    page_range: 예) "1-3", "2", "" (전체)
 
     Returns:
         dict: {
@@ -179,19 +181,23 @@ def ocr_scan_general(image_base64: str, media_type: str) -> dict:
             "problem_number": str, # 문제 번호 (있으면)
         }
     """
-    prompt = """이 수학 문제 스캔 이미지를 분석하세요. 반드시 아래 JSON 형식으로만 응답하세요.
+    page_instruction = ""
+    if page_range:
+        page_instruction = f"\n\n※ {page_range}페이지의 내용만 추출하세요. 다른 페이지는 무시하세요."
 
-{
-  "problem": "문제 전체 텍스트. 수식은 $ $ 사이에 LaTeX로 표기. 예: $x^2 + 2x - 3 = 0$",
+    prompt = f"""이 수학 문제 스캔 이미지(또는 PDF)를 분석하세요. 반드시 아래 JSON 형식으로만 응답하세요.{page_instruction}
+
+{{
+  "problem": "문제 전체 텍스트. 수식은 $ $ 사이에 LaTeX로 표기. 예: $x^2 + 2x - 3 = 0$. 여러 문제가 있으면 번호와 함께 전부 포함.",
   "solution": "해설 전체 텍스트 (없으면 null)",
   "has_solution": true 또는 false,
-  "problem_number": "문제 번호 (없으면 빈 문자열)"
-}
+  "problem_number": "첫 번째 문제 번호 (없으면 빈 문자열)"
+}}
 
 주의:
 - 문제와 해설을 구분하여 추출
 - 수식, 분수, 적분 기호 등 모든 수학 기호를 LaTeX로 정확히 표기
-- 이미지가 흐리거나 일부 보이지 않더라도 최선을 다해 추출
+- 여러 문제가 있으면 problem 필드에 번호와 함께 모두 포함
 - JSON만 출력"""
 
     payload = {

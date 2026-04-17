@@ -389,6 +389,7 @@ class ClaudeService:
 
     async def process_scan(self, ocr_data: dict, mode: str, variant_count: int, model: str, grade: str, output_mode: str = "variant") -> dict:
         """스캔본 처리: LaTeX OCR → HWP 변환 + 해설 작성(필요시) + 유사문항 생성.
+        output_mode: "variant" | "type_only" | "type_with_solution"
 
         ocr_data:
           일반 모드: {"problem", "solution", "has_solution", "problem_number"}
@@ -430,37 +431,59 @@ class ClaudeService:
             f"1. 【HWP 변환】 문제 텍스트의 모든 수식을 한글 수식입력기 코드(대괄호 형식)로 변환하세요.\n"
         )
 
-        if needs_solution:
+        if output_mode == "type_only":
+            # 타이핑만: HWP 변환만 (해설/유사문항 없음)
+            if has_solution and solution_text.strip():
+                user_text += f"2. 【해설 변환】 제공된 해설의 수식도 한글 수식입력기 코드로 변환하세요.\n"
             user_text += (
-                f"2. 【해설 작성】 위 문제의 풀이와 정답을 작성하세요. "
-                f"단계별로 계산 과정을 상세히 보여주세요.\n"
+                f"\n출력 형식 (반드시 이 태그만 사용):\n"
+                f"-문제-\n(HWP 형식으로 변환된 문제)\n\n"
             )
-            solution_step = "2"
-            variant_step = "3"
+            if has_solution and solution_text.strip():
+                user_text += f"-해설-\n(HWP 형식으로 변환된 해설)\n\n-정답-\n(정답)\n\n"
+        elif output_mode == "type_with_solution":
+            # 타이핑+해설: HWP 변환 + 해설 작성 (유사문항 없음)
+            if needs_solution:
+                user_text += (
+                    f"2. 【해설 작성】 위 문제의 풀이와 정답을 작성하세요. "
+                    f"단계별로 계산 과정을 상세히 보여주세요.\n"
+                )
+            else:
+                user_text += f"2. 【해설 변환】 제공된 해설의 수식도 한글 수식입력기 코드로 변환하세요.\n"
+            user_text += (
+                f"\n출력 형식 (반드시 이 태그만 사용):\n"
+                f"-문제-\n(HWP 형식으로 변환된 문제)\n\n"
+                f"-해설-\n(해설 내용)\n\n"
+                f"-정답-\n(정답)\n\n"
+            )
         else:
-            user_text += (
-                f"2. 【해설 변환】 제공된 해설의 수식도 한글 수식입력기 코드로 변환하세요.\n"
-            )
-            solution_step = None
-            variant_step = "3"
+            # variant (기본): HWP 변환 + 해설 + 유사문항
+            if needs_solution:
+                user_text += (
+                    f"2. 【해설 작성】 위 문제의 풀이와 정답을 작성하세요. "
+                    f"단계별로 계산 과정을 상세히 보여주세요.\n"
+                )
+                variant_step = "3"
+            else:
+                user_text += f"2. 【해설 변환】 제공된 해설의 수식도 한글 수식입력기 코드로 변환하세요.\n"
+                variant_step = "3"
 
-        user_text += (
-            f"{variant_step}. 【유사문항 생성】 이 문제를 기반으로 유사문항 {variant_count}개를 생성하세요. "
-            f"각 유사문항마다 풀이와 정답도 포함하세요.\n\n"
-        )
-
-        user_text += (
-            f"출력 형식 (반드시 이 태그만 사용):\n"
-            f"-문제-\n(HWP 형식으로 변환된 문제)\n\n"
-            f"-해설-\n(해설 내용)\n\n"
-            f"-정답-\n(정답)\n\n"
-        )
-        for i in range(1, variant_count + 1):
             user_text += (
-                f"-유사문항{i}-\n(유사문항 {i} 내용)\n\n"
-                f"-유사해설{i}-\n(유사문항 {i} 해설)\n\n"
-                f"-유사정답{i}-\n(유사문항 {i} 정답)\n\n"
+                f"{variant_step}. 【유사문항 생성】 이 문제를 기반으로 유사문항 {variant_count}개를 생성하세요. "
+                f"각 유사문항마다 풀이와 정답도 포함하세요.\n\n"
             )
+            user_text += (
+                f"출력 형식 (반드시 이 태그만 사용):\n"
+                f"-문제-\n(HWP 형식으로 변환된 문제)\n\n"
+                f"-해설-\n(해설 내용)\n\n"
+                f"-정답-\n(정답)\n\n"
+            )
+            for i in range(1, variant_count + 1):
+                user_text += (
+                    f"-유사문항{i}-\n(유사문항 {i} 내용)\n\n"
+                    f"-유사해설{i}-\n(유사문항 {i} 해설)\n\n"
+                    f"-유사정답{i}-\n(유사문항 {i} 정답)\n\n"
+                )
 
         system_prompt = self.solve_prompt + grade_prompt
 

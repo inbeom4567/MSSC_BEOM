@@ -18,7 +18,15 @@
       "WebFetch(domain:nanobanana.im)",
       "WebFetch(domain:ai.google.dev)",
       "Skill(qa)",
-      "Skill(qa:*)"
+      "Skill(qa:*)",
+      "Bash(awk '{print $5}')",
+      "Bash(powershell -Command \"Get-Process -Id 2880 -ErrorAction SilentlyContinue | Select-Object Name,Id\")",
+      "Bash(powershell -Command \"Get-Process -Id 24192 -ErrorAction SilentlyContinue | Select-Object Name,Id\")",
+      "Bash(wsl bash *)",
+      "Bash(wsl -e sh -c \"fuser -k 8001/tcp 2>/dev/null && echo killed || echo not_found\")",
+      "Bash(wsl -e sh -c \"ss -tlnp 2>/dev/null | grep 8001 || netstat -tlnp 2>/dev/null | grep 8001\")",
+      "Bash(wsl -e sh -c \"kill -9 12 2>/dev/null && echo killed || echo failed\")",
+      "Bash(wsl -e sh -c \"ss -tlnp 2>/dev/null | grep 8001 || echo 'port 8001 free'\")"
     ]
   },
   "hooks": {
