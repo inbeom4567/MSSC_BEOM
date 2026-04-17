@@ -154,7 +154,7 @@ export default function TabHwpx({ grade, model, guidelines }) {
         className={`p-6 border-2 border-dashed rounded-xl text-center transition-colors ${
           isDragging
             ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
-            : 'border-gray-300 dark:border-[#2E3356] hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-indigo-500/5'
+            : 'border-gray-300 dark:border-[rgba(255,255,255,0.08)] hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-indigo-500/5'
         }`}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
         onDragLeave={() => setIsDragging(false)}
@@ -165,14 +165,14 @@ export default function TabHwpx({ grade, model, guidelines }) {
           {fileName ? (
             <div>
               <p className="text-lg font-medium text-indigo-500 dark:text-indigo-400">{fileName}</p>
-              {isAnalyzing && <p className="text-sm text-gray-500 dark:text-[#7880AA] mt-1">파일 분석 중...</p>}
+              {isAnalyzing && <p className="text-sm text-gray-500 dark:text-[#8a8f98] mt-1">파일 분석 중...</p>}
               {problems && <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">{problems.length}개 문제 감지됨</p>}
             </div>
           ) : (
             <div className="py-4">
               <div className="text-3xl mb-2">📄</div>
-              <p className="text-gray-600 dark:text-[#7880AA] font-medium">한글 파일(.hwpx)을 드래그하거나 클릭</p>
-              <p className="text-gray-400 dark:text-[#444A6E] text-xs mt-2">미주 형식 자동 인식 · 여러 문제 동시 처리</p>
+              <p className="text-gray-600 dark:text-[#8a8f98] font-medium">한글 파일(.hwpx)을 드래그하거나 클릭</p>
+              <p className="text-gray-400 dark:text-[#4a4a52] text-xs mt-2">미주 형식 자동 인식 · 여러 문제 동시 처리</p>
             </div>
           )}
         </label>
@@ -180,24 +180,24 @@ export default function TabHwpx({ grade, model, guidelines }) {
 
       {/* 문제 선택 */}
       {problems && problems.length > 0 && (
-        <div className="p-4 bg-white dark:bg-[#11131F] rounded-xl border border-gray-200 dark:border-[#222644] shadow-sm space-y-3">
+        <div className="p-4 bg-white dark:bg-[#0f1011] rounded-xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)] shadow-sm space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-gray-800 dark:text-[#E8EAFF]">문제 선택 ({selectedNumbers.size}/{problems.length})</h3>
+            <h3 className="font-bold text-gray-800 dark:text-[#f7f8f8]">문제 선택 ({selectedNumbers.size}/{problems.length})</h3>
             <div className="flex gap-2">
               <button onClick={() => setSelectedNumbers(new Set(problems.map(p => p.number)))} className="text-xs text-indigo-500 dark:text-indigo-400 hover:underline">전체 선택</button>
-              <button onClick={() => setSelectedNumbers(new Set())} className="text-xs text-gray-400 dark:text-[#7880AA] hover:underline">전체 해제</button>
+              <button onClick={() => setSelectedNumbers(new Set())} className="text-xs text-gray-400 dark:text-[#8a8f98] hover:underline">전체 해제</button>
             </div>
           </div>
           {problems.map((p) => (
             <label key={p.number} className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
               selectedNumbers.has(p.number)
                 ? 'bg-indigo-50 dark:bg-indigo-500/10'
-                : 'hover:bg-gray-50 dark:hover:bg-[#191C2E]'
+                : 'hover:bg-gray-50 dark:hover:bg-[#141516]'
             }`}>
               <input type="checkbox" checked={selectedNumbers.has(p.number)} onChange={() => toggleNumber(p.number)} className="mt-1 w-4 h-4 accent-indigo-500" />
               <div className="min-w-0">
-                <span className="text-sm font-medium text-gray-700 dark:text-[#C8CADF]">{p.number}번</span>
-                <div className="text-xs text-gray-500 dark:text-[#7880AA] mt-0.5 overflow-hidden">
+                <span className="text-sm font-medium text-gray-700 dark:text-[#d0d0d5]">{p.number}번</span>
+                <div className="text-xs text-gray-500 dark:text-[#8a8f98] mt-0.5 overflow-hidden">
                   <LatexRenderer text={hwpToLatex(p.preview)} />
                 </div>
               </div>
@@ -210,35 +210,35 @@ export default function TabHwpx({ grade, model, guidelines }) {
       {problems && selectedNumbers.size > 0 && (
         <div className="p-4 bg-indigo-50 dark:bg-indigo-500/5 rounded-xl border border-indigo-200 dark:border-indigo-500/20 space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-gray-500 dark:text-[#7880AA] uppercase tracking-wide">변형 유형</span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-[#8a8f98] uppercase tracking-wide">변형 유형</span>
             {TYPES.map((t) => (
               <button key={t.value} onClick={() => setVariantType(t.value)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   variantType === t.value
                     ? 'bg-indigo-600 dark:bg-indigo-500 text-white'
-                    : 'bg-white dark:bg-[#191C2E] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] hover:bg-gray-50 dark:hover:bg-[#212540]'
+                    : 'bg-white dark:bg-[#141516] text-gray-600 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] hover:bg-gray-50 dark:hover:bg-[#1a1a1c]'
                 }`}>{t.label}</button>
             ))}
-            <span className="text-xs font-semibold text-gray-500 dark:text-[#7880AA] uppercase tracking-wide ml-2">난이도</span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-[#8a8f98] uppercase tracking-wide ml-2">난이도</span>
             {DIFFS.map((d) => (
               <button key={d.value} onClick={() => setDifficulty(d.value)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   difficulty === d.value
                     ? 'bg-violet-600 dark:bg-violet-500 text-white'
-                    : 'bg-white dark:bg-[#191C2E] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] hover:bg-gray-50 dark:hover:bg-[#212540]'
+                    : 'bg-white dark:bg-[#141516] text-gray-600 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] hover:bg-gray-50 dark:hover:bg-[#1a1a1c]'
                 }`}>{d.label}</button>
             ))}
           </div>
           <input type="text" value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)}
             placeholder="추가 지시사항 (선택)"
-            className="w-full px-3 py-2.5 border border-indigo-200 dark:border-[#2E3356] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 bg-white dark:bg-[#191C2E] text-gray-700 dark:text-[#E8EAFF] placeholder:text-gray-400 dark:placeholder:text-[#444A6E] transition-colors" />
+            className="w-full px-3 py-2.5 border border-indigo-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 bg-white dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] placeholder:text-gray-400 dark:placeholder:text-[#4a4a52] transition-colors" />
           <div className="flex gap-2.5">
             <button onClick={handleGenerate} disabled={isLoading}
               className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg font-semibold text-sm hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 transition-all shadow-[0_2px_12px_rgba(108,127,255,0.25)]">
               {isLoading ? `생성 중... (${selectedNumbers.size}문제)` : `✦ ${selectedNumbers.size}문제 유사문항 생성`}
             </button>
             <button onClick={handleReset}
-              className="px-4 py-2.5 bg-gray-100 dark:bg-[#191C2E] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-[#212540] transition-colors">
+              className="px-4 py-2.5 bg-gray-100 dark:bg-[#141516] text-gray-600 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-[#1a1a1c] transition-colors">
               초기화
             </button>
           </div>
@@ -254,7 +254,7 @@ export default function TabHwpx({ grade, model, guidelines }) {
       {isLoading && (
         <div className="text-center py-6">
           <div className="inline-block w-8 h-8 border-[3px] border-indigo-200 dark:border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-          <p className="text-gray-400 dark:text-[#7880AA] text-sm mt-3">{selectedNumbers.size}개 문제 유사문항 생성 중...</p>
+          <p className="text-gray-400 dark:text-[#8a8f98] text-sm mt-3">{selectedNumbers.size}개 문제 유사문항 생성 중...</p>
         </div>
       )}
 
@@ -262,20 +262,20 @@ export default function TabHwpx({ grade, model, guidelines }) {
       {batchResults && (
         <div className="space-y-6">
           {batchResults.map((r, i) => (
-            <div key={i} className="bg-white dark:bg-[#11131F] rounded-xl border border-gray-200 dark:border-[#222644] p-5 shadow-sm">
-              <h3 className="font-bold text-gray-800 dark:text-[#E8EAFF] mb-3">{r.number}번 유사문항</h3>
-              <div className="text-gray-700 dark:text-[#C8CADF] text-sm leading-relaxed">
+            <div key={i} className="bg-white dark:bg-[#0f1011] rounded-xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)] p-5 shadow-sm">
+              <h3 className="font-bold text-gray-800 dark:text-[#f7f8f8] mb-3">{r.number}번 유사문항</h3>
+              <div className="text-gray-700 dark:text-[#d0d0d5] text-sm leading-relaxed">
                 <LatexRenderer text={hwpToLatex(r.result)} />
               </div>
               <UsageInfo usage={r.usage} />
 
               {/* 수정 요청 */}
-              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-[#222644]">
+              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-[rgba(255,255,255,0.06)]">
                 <div className="flex gap-2">
                   <input type="text" value={i === batchResults.length - 1 ? refineText : ''}
                     onChange={(e) => setRefineText(e.target.value)}
                     placeholder="수정 요청 (예: 답을 다른 값으로, 조건을 단순하게)"
-                    className="flex-1 px-3 py-2 border border-amber-200 dark:border-amber-500/20 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-400/30 bg-white dark:bg-[#191C2E] text-gray-700 dark:text-[#E8EAFF] placeholder:text-gray-400 dark:placeholder:text-[#444A6E]" />
+                    className="flex-1 px-3 py-2 border border-amber-200 dark:border-amber-500/20 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-400/30 bg-white dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] placeholder:text-gray-400 dark:placeholder:text-[#4a4a52]" />
                   <button onClick={() => handleRefine(i)} disabled={isRefining || !refineText.trim()}
                     className="px-3 py-2 bg-amber-500 dark:bg-amber-600 text-white rounded-lg text-xs font-medium hover:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 transition-colors">
                     {isRefining ? '수정 중...' : '수정'}
@@ -286,7 +286,7 @@ export default function TabHwpx({ grade, model, guidelines }) {
           ))}
 
           {usage && (
-            <div className="p-3 bg-gray-50 dark:bg-[#191C2E] rounded-lg border border-gray-200 dark:border-[#2E3356] text-xs text-gray-500 dark:text-[#7880AA]">
+            <div className="p-3 bg-gray-50 dark:bg-[#141516] rounded-lg border border-gray-200 dark:border-[rgba(255,255,255,0.08)] text-xs text-gray-500 dark:text-[#8a8f98]">
               총 비용: ${usage.cost_usd?.toFixed(4)} (약 {Math.round(usage.cost_krw || 0).toLocaleString()}원) | 총 토큰: {(usage.total_tokens || 0).toLocaleString()}
             </div>
           )}

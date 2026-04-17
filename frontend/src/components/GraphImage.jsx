@@ -65,7 +65,7 @@ export default function GraphImage({ base64Data, index, onRetry }) {
         <img
           src={`data:image/png;base64,${base64Data}`}
           alt={`그래프 ${index + 1}`}
-          className="mx-auto rounded-lg border border-gray-200 dark:border-[#2E3356] shadow-sm max-w-full"
+          className="mx-auto rounded-lg border border-gray-200 dark:border-[rgba(255,255,255,0.08)] shadow-sm max-w-full"
         />
       )}
       <div className="absolute top-2 right-2 flex gap-1">

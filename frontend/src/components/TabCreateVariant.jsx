@@ -125,37 +125,37 @@ export default function TabCreateVariant({ grade, model, guidelines }) {
       {ready && (
         <div className="p-4 bg-indigo-50 dark:bg-indigo-500/5 rounded-xl border border-indigo-200 dark:border-indigo-500/20 space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-gray-500 dark:text-[#7880AA] uppercase tracking-wide">변형 유형</span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-[#8a8f98] uppercase tracking-wide">변형 유형</span>
             {TYPES.map((t) => (
               <button key={t.value} onClick={() => setVariantType(t.value)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   variantType === t.value
                     ? 'bg-indigo-600 dark:bg-indigo-500 text-white'
-                    : 'bg-white dark:bg-[#191C2E] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] hover:bg-gray-50 dark:hover:bg-[#212540]'
+                    : 'bg-white dark:bg-[#141516] text-gray-600 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] hover:bg-gray-50 dark:hover:bg-[#1a1a1c]'
                 }`}>{t.label}</button>
             ))}
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-semibold text-gray-500 dark:text-[#7880AA] uppercase tracking-wide">난이도</span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-[#8a8f98] uppercase tracking-wide">난이도</span>
             {DIFFS.map((d) => (
               <button key={d.value} onClick={() => setDifficulty(d.value)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   difficulty === d.value
                     ? 'bg-violet-600 dark:bg-violet-500 text-white'
-                    : 'bg-white dark:bg-[#191C2E] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] hover:bg-gray-50 dark:hover:bg-[#212540]'
+                    : 'bg-white dark:bg-[#141516] text-gray-600 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] hover:bg-gray-50 dark:hover:bg-[#1a1a1c]'
                 }`}>{d.label}</button>
             ))}
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-500 dark:text-[#7880AA] uppercase tracking-wide block mb-1.5">
+            <label className="text-xs font-semibold text-gray-500 dark:text-[#8a8f98] uppercase tracking-wide block mb-1.5">
               추가 지시사항 <span className="normal-case font-normal text-gray-400">(선택)</span>
             </label>
             <input type="text"
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
               placeholder="예: 로그 밑을 3 대신 2로 바꿔서 / 조건에 절댓값 추가"
-              className="w-full px-3 py-2.5 border border-indigo-200 dark:border-[#2E3356] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 bg-white dark:bg-[#191C2E] text-gray-700 dark:text-[#E8EAFF] placeholder:text-gray-400 dark:placeholder:text-[#444A6E] transition-colors"
+              className="w-full px-3 py-2.5 border border-indigo-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 bg-white dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] placeholder:text-gray-400 dark:placeholder:text-[#4a4a52] transition-colors"
             />
           </div>
 
@@ -165,7 +165,7 @@ export default function TabCreateVariant({ grade, model, guidelines }) {
               {isLoading ? '생성 중... (30초~1분)' : '✦ 유사문항 생성'}
             </button>
             <button onClick={handleReset}
-              className="px-4 py-2.5 bg-gray-100 dark:bg-[#191C2E] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-[#212540] transition-colors">
+              className="px-4 py-2.5 bg-gray-100 dark:bg-[#141516] text-gray-600 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-[#1a1a1c] transition-colors">
               초기화
             </button>
           </div>
@@ -181,7 +181,7 @@ export default function TabCreateVariant({ grade, model, guidelines }) {
       {isLoading && (
         <div className="text-center py-10">
           <div className="inline-block w-8 h-8 border-[3px] border-indigo-200 dark:border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-          <p className="text-gray-400 dark:text-[#7880AA] text-sm mt-3">원본 해설 방향 그대로 유사문항 풀이 작성 중...</p>
+          <p className="text-gray-400 dark:text-[#8a8f98] text-sm mt-3">원본 해설 방향 그대로 유사문항 풀이 작성 중...</p>
         </div>
       )}
 
@@ -200,7 +200,7 @@ export default function TabCreateVariant({ grade, model, guidelines }) {
                 value={refineText}
                 onChange={(e) => setRefineText(e.target.value)}
                 placeholder="예: 조건을 더 단순하게 / 답을 다른 값으로"
-                className="flex-1 px-3 py-2.5 border border-amber-200 dark:border-amber-500/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/30 bg-white dark:bg-[#191C2E] text-gray-700 dark:text-[#E8EAFF] placeholder:text-gray-400 dark:placeholder:text-[#444A6E]"
+                className="flex-1 px-3 py-2.5 border border-amber-200 dark:border-amber-500/20 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/30 bg-white dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] placeholder:text-gray-400 dark:placeholder:text-[#4a4a52]"
               />
               <button onClick={handleRefine} disabled={isRefining || !refineText.trim()}
                 className="px-4 py-2 bg-amber-500 dark:bg-amber-600 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 transition-colors whitespace-nowrap">

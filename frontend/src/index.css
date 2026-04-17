@@ -15,12 +15,12 @@ body {
 
 .dark body,
 .dark {
-  background-color: #0A0B14;
-  color: #E8EAFF;
+  background-color: #09090b;
+  color: #f7f8f8;
 }
 
 /* 스크롤바 (다크모드) */
 .dark ::-webkit-scrollbar { width: 6px; height: 6px; }
-.dark ::-webkit-scrollbar-track { background: #11131F; }
-.dark ::-webkit-scrollbar-thumb { background: #2E3356; border-radius: 3px; }
+.dark ::-webkit-scrollbar-track { background: #0f1011; }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
 .dark ::-webkit-scrollbar-thumb:hover { background: #3E4470; }

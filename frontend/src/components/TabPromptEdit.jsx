@@ -41,7 +41,7 @@ export default function TabPromptEdit() {
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           placeholder="예: 플러스마이너스는 pm이 아니라 +- 로 써야 합니다"
-          className="w-full p-3 border border-amber-200 dark:border-amber-500/20 rounded-lg text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-amber-400/30 bg-white dark:bg-[#191C2E] text-gray-800 dark:text-[#E8EAFF] placeholder:text-gray-400 dark:placeholder:text-[#444A6E]"
+          className="w-full p-3 border border-amber-200 dark:border-amber-500/20 rounded-lg text-sm resize-none h-24 focus:outline-none focus:ring-2 focus:ring-amber-400/30 bg-white dark:bg-[#141516] text-gray-800 dark:text-[#f7f8f8] placeholder:text-gray-400 dark:placeholder:text-[#4a4a52]"
         />
         <button onClick={handleSubmit} disabled={isLoading || !feedback.trim()}
           className="mt-2 px-5 py-2 bg-amber-500 dark:bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 transition-colors">
@@ -63,13 +63,13 @@ export default function TabPromptEdit() {
       )}
 
       {history.length > 0 && (
-        <div className="p-4 bg-white dark:bg-[#11131F] rounded-xl border border-gray-200 dark:border-[#222644]">
-          <h3 className="font-bold text-gray-800 dark:text-[#E8EAFF] mb-2">수정 이력</h3>
+        <div className="p-4 bg-white dark:bg-[#0f1011] rounded-xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)]">
+          <h3 className="font-bold text-gray-800 dark:text-[#f7f8f8] mb-2">수정 이력</h3>
           <div className="space-y-2">
             {history.map((h, i) => (
-              <div key={i} className="text-sm border-b border-gray-100 dark:border-[#222644] pb-2">
-                <p className="text-gray-500 dark:text-[#7880AA]">피드백: {h.feedback}</p>
-                <p className="text-gray-700 dark:text-[#C8CADF]">→ {h.rule}</p>
+              <div key={i} className="text-sm border-b border-gray-100 dark:border-[rgba(255,255,255,0.06)] pb-2">
+                <p className="text-gray-500 dark:text-[#8a8f98]">피드백: {h.feedback}</p>
+                <p className="text-gray-700 dark:text-[#d0d0d5]">→ {h.rule}</p>
               </div>
             ))}
           </div>

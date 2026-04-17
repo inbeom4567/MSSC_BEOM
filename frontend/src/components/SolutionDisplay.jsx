@@ -56,10 +56,10 @@ export default function SolutionDisplay({ solution, graphs = [], title = '해설
   }
 
   return (
-    <div className="bg-white dark:bg-[#11131F] rounded-xl border border-gray-200 dark:border-[#222644] shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-[#0f1011] rounded-xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)] shadow-sm overflow-hidden">
       {/* 툴바 */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-[#222644] bg-gray-50/50 dark:bg-[#191C2E]/50">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-[#E8EAFF]">{title}</h2>
+      <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-[rgba(255,255,255,0.06)] bg-gray-50/50 dark:bg-[#141516]/50">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-[#f7f8f8]">{title}</h2>
         <div className="flex gap-2">
           <button
             onClick={handleListCopy}
@@ -69,7 +69,7 @@ export default function SolutionDisplay({ solution, graphs = [], title = '해설
           </button>
           <button
             onClick={handleFullCopy}
-            className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-[#212540] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] rounded-lg hover:bg-gray-200 dark:hover:bg-[#2A2E52] transition-colors"
+            className="px-3 py-1.5 text-xs font-medium bg-gray-100 dark:bg-[#1a1a1c] text-gray-600 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg hover:bg-gray-200 dark:hover:bg-[#222224] transition-colors"
           >
             {fullCopied ? '✓ 복사됨' : '전체 복사'}
           </button>
@@ -77,7 +77,7 @@ export default function SolutionDisplay({ solution, graphs = [], title = '해설
       </div>
 
       {/* 본문 */}
-      <div className="p-5 text-gray-700 dark:text-[#C8CADF] leading-loose text-[14px] whitespace-pre-wrap">
+      <div className="p-5 text-gray-700 dark:text-[#d0d0d5] leading-loose text-[14px] whitespace-pre-wrap">
         {parts.map((part, i) => {
           if (part.type === 'graph' && graphs[part.index]) {
             return <GraphImage key={i} base64Data={graphs[part.index]} index={part.index} />

@@ -213,7 +213,7 @@ function Section({ section }) {
   const [open, setOpen] = useState(true)
 
   return (
-    <div className={`rounded-2xl border ${section.accent} bg-white dark:bg-[#11131F] overflow-hidden`}>
+    <div className={`rounded-2xl border ${section.accent} bg-white dark:bg-[#0f1011] overflow-hidden`}>
       <button
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-5 py-4 text-left"
@@ -223,17 +223,17 @@ function Section({ section }) {
             {section.icon}
           </div>
           <div>
-            <div className="text-sm font-bold text-gray-800 dark:text-[#E8EAFF]">{section.title}</div>
-            <div className="text-xs text-gray-400 dark:text-[#7880AA] mt-0.5">{section.desc}</div>
+            <div className="text-sm font-bold text-gray-800 dark:text-[#f7f8f8]">{section.title}</div>
+            <div className="text-xs text-gray-400 dark:text-[#8a8f98] mt-0.5">{section.desc}</div>
           </div>
         </div>
-        <span className={`text-gray-400 dark:text-[#7880AA] text-lg transition-transform ${open ? 'rotate-180' : ''}`}>
+        <span className={`text-gray-400 dark:text-[#8a8f98] text-lg transition-transform ${open ? 'rotate-180' : ''}`}>
           ▾
         </span>
       </button>
 
       {open && (
-        <div className="px-5 pb-5 border-t border-gray-100 dark:border-[#222644]">
+        <div className="px-5 pb-5 border-t border-gray-100 dark:border-[rgba(255,255,255,0.06)]">
           <div className="mt-4 space-y-3">
             {section.steps.map((s) => (
               <div key={s.step} className="flex gap-3">
@@ -241,20 +241,20 @@ function Section({ section }) {
                   {s.step}
                 </span>
                 <div>
-                  <div className="text-sm font-semibold text-gray-800 dark:text-[#E8EAFF]">{s.title}</div>
-                  <div className="text-sm text-gray-500 dark:text-[#9BA3C7] mt-0.5 leading-relaxed">{s.body}</div>
+                  <div className="text-sm font-semibold text-gray-800 dark:text-[#f7f8f8]">{s.title}</div>
+                  <div className="text-sm text-gray-500 dark:text-[#9fa3ad] mt-0.5 leading-relaxed">{s.body}</div>
                 </div>
               </div>
             ))}
           </div>
 
           {section.tips && section.tips.length > 0 && (
-            <div className="mt-4 p-3 bg-gray-50 dark:bg-[#191C2E] rounded-xl border border-gray-100 dark:border-[#2E3356]">
-              <div className="text-[11px] font-bold text-gray-400 dark:text-[#7880AA] uppercase tracking-wide mb-2">팁</div>
+            <div className="mt-4 p-3 bg-gray-50 dark:bg-[#141516] rounded-xl border border-gray-100 dark:border-[rgba(255,255,255,0.08)]">
+              <div className="text-[11px] font-bold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide mb-2">팁</div>
               <ul className="space-y-1.5">
                 {section.tips.map((tip, i) => (
-                  <li key={i} className="flex gap-2 text-xs text-gray-500 dark:text-[#9BA3C7] leading-relaxed">
-                    <span className="shrink-0 text-gray-300 dark:text-[#444A6E]">•</span>
+                  <li key={i} className="flex gap-2 text-xs text-gray-500 dark:text-[#9fa3ad] leading-relaxed">
+                    <span className="shrink-0 text-gray-300 dark:text-[#4a4a52]">•</span>
                     {tip}
                   </li>
                 ))}
@@ -286,18 +286,18 @@ export default function TabGuide() {
       </div>
 
       {/* 공통 팁 */}
-      <div className="rounded-2xl border border-gray-200 dark:border-[#222644] bg-white dark:bg-[#11131F] overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-[#222644]">
-          <div className="text-sm font-bold text-gray-800 dark:text-[#E8EAFF]">공통 팁</div>
-          <div className="text-xs text-gray-400 dark:text-[#7880AA] mt-0.5">모든 탭에서 알아두면 좋은 것들</div>
+      <div className="rounded-2xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)] bg-white dark:bg-[#0f1011] overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-[rgba(255,255,255,0.06)]">
+          <div className="text-sm font-bold text-gray-800 dark:text-[#f7f8f8]">공통 팁</div>
+          <div className="text-xs text-gray-400 dark:text-[#8a8f98] mt-0.5">모든 탭에서 알아두면 좋은 것들</div>
         </div>
         <div className="p-5 grid sm:grid-cols-2 gap-4">
           {COMMON_TIPS.map((tip) => (
             <div key={tip.title} className="flex gap-3">
               <span className="text-xl shrink-0">{tip.icon}</span>
               <div>
-                <div className="text-sm font-semibold text-gray-800 dark:text-[#E8EAFF]">{tip.title}</div>
-                <div className="text-xs text-gray-500 dark:text-[#9BA3C7] mt-0.5 leading-relaxed">{tip.body}</div>
+                <div className="text-sm font-semibold text-gray-800 dark:text-[#f7f8f8]">{tip.title}</div>
+                <div className="text-xs text-gray-500 dark:text-[#9fa3ad] mt-0.5 leading-relaxed">{tip.body}</div>
               </div>
             </div>
           ))}

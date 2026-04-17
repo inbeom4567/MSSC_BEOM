@@ -52,7 +52,7 @@ export default function TabHistory() {
   return (
     <div className="space-y-4">
       {items.length === 0 ? (
-        <div className="text-center py-12 text-gray-400 dark:text-[#444A6E]">
+        <div className="text-center py-12 text-gray-400 dark:text-[#4a4a52]">
           아직 히스토리가 없습니다. 유사문항을 생성하면 자동으로 저장됩니다.
         </div>
       ) : (
@@ -67,7 +67,7 @@ export default function TabHistory() {
                     ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
                     : compareId === item.id
                     ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10'
-                    : 'border-gray-200 dark:border-[#222644] bg-white dark:bg-[#11131F] hover:bg-gray-50 dark:hover:bg-[#191C2E]'
+                    : 'border-gray-200 dark:border-[rgba(255,255,255,0.06)] bg-white dark:bg-[#0f1011] hover:bg-gray-50 dark:hover:bg-[#141516]'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -79,24 +79,24 @@ export default function TabHistory() {
                     }`}>
                       {item.model?.includes('opus') ? 'Opus' : 'Sonnet'}
                     </span>
-                    <span className="text-xs text-gray-500 dark:text-[#7880AA]">{TYPE_LABELS[item.type] || item.type}</span>
+                    <span className="text-xs text-gray-500 dark:text-[#8a8f98]">{TYPE_LABELS[item.type] || item.type}</span>
                     {item.variant_type && (
-                      <span className="text-xs text-gray-400 dark:text-[#444A6E]">{VTYPE_LABELS[item.variant_type]}</span>
+                      <span className="text-xs text-gray-400 dark:text-[#4a4a52]">{VTYPE_LABELS[item.variant_type]}</span>
                     )}
                     {item.difficulty && (
-                      <span className="text-xs text-gray-400 dark:text-[#444A6E]">{DIFF_LABELS[item.difficulty]}</span>
+                      <span className="text-xs text-gray-400 dark:text-[#4a4a52]">{DIFF_LABELS[item.difficulty]}</span>
                     )}
                     {item.cost_krw > 0 && (
-                      <span className="text-xs text-gray-400 dark:text-[#444A6E]">약 {item.cost_krw.toLocaleString()}원</span>
+                      <span className="text-xs text-gray-400 dark:text-[#4a4a52]">약 {item.cost_krw.toLocaleString()}원</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 dark:text-[#444A6E]">
+                    <span className="text-xs text-gray-400 dark:text-[#4a4a52]">
                       {new Date(item.created_at).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <button
                       onClick={(e) => handleDelete(item.id, e)}
-                      className="text-gray-300 dark:text-[#2E3356] hover:text-red-500 dark:hover:text-red-400 text-xs transition-colors"
+                      className="text-gray-300 dark:text-[rgba(255,255,255,0.08)] hover:text-red-500 dark:hover:text-red-400 text-xs transition-colors"
                     >
                       삭제
                     </button>
@@ -105,7 +105,7 @@ export default function TabHistory() {
                 {item.custom_prompt && (
                   <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 truncate">지시: {item.custom_prompt}</p>
                 )}
-                <p className="text-sm text-gray-600 dark:text-[#7880AA] mt-1 truncate">{item.preview}</p>
+                <p className="text-sm text-gray-600 dark:text-[#8a8f98] mt-1 truncate">{item.preview}</p>
                 {isCompareMode && selected?.id !== item.id && compareId !== item.id && (
                   <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-1">클릭하여 비교</p>
                 )}
@@ -137,7 +137,7 @@ export default function TabHistory() {
               }`}>
                 {selected.model?.includes('opus') ? 'Opus' : 'Sonnet'}
               </span>
-              <span className="text-xs text-gray-500 dark:text-[#7880AA]">{new Date(selected.created_at).toLocaleString('ko-KR')}</span>
+              <span className="text-xs text-gray-500 dark:text-[#8a8f98]">{new Date(selected.created_at).toLocaleString('ko-KR')}</span>
             </div>
             <SolutionDisplay solution={selected.result} title="A" />
             <UsageInfo usage={selected.usage} />
@@ -151,7 +151,7 @@ export default function TabHistory() {
               }`}>
                 {compareData.model?.includes('opus') ? 'Opus' : 'Sonnet'}
               </span>
-              <span className="text-xs text-gray-500 dark:text-[#7880AA]">{new Date(compareData.created_at).toLocaleString('ko-KR')}</span>
+              <span className="text-xs text-gray-500 dark:text-[#8a8f98]">{new Date(compareData.created_at).toLocaleString('ko-KR')}</span>
             </div>
             <SolutionDisplay solution={compareData.result} title="B" />
             <UsageInfo usage={compareData.usage} />

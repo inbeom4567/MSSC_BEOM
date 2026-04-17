@@ -179,7 +179,7 @@ export default function HwpCodeBlock({ code, inline = false }) {
 
   // 블록 모드
   return (
-    <div className="my-3 px-4 py-3 bg-gray-50 dark:bg-[#191C2E] rounded-lg border border-gray-200 dark:border-[#2E3356] overflow-x-auto">
+    <div className="my-3 px-4 py-3 bg-gray-50 dark:bg-[#141516] rounded-lg border border-gray-200 dark:border-[rgba(255,255,255,0.08)] overflow-x-auto">
       {latexHtml ? (
         <div dangerouslySetInnerHTML={{ __html: latexHtml }} />
       ) : (

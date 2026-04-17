@@ -104,7 +104,7 @@ export default function TabSolveVariant({ grade, model, guidelines }) {
             {isLoading ? '해설 작성 중... (30초~1분)' : '✦ 해설 작성'}
           </button>
           <button onClick={handleReset}
-            className="px-5 py-2.5 bg-gray-100 dark:bg-[#191C2E] text-gray-600 dark:text-[#7880AA] border border-gray-200 dark:border-[#2E3356] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-[#212540] transition-colors">
+            className="px-5 py-2.5 bg-gray-100 dark:bg-[#141516] text-gray-600 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-[#1a1a1c] transition-colors">
             초기화
           </button>
         </div>
@@ -119,7 +119,7 @@ export default function TabSolveVariant({ grade, model, guidelines }) {
       {isLoading && (
         <div className="text-center py-10">
           <div className="inline-block w-8 h-8 border-[3px] border-indigo-200 dark:border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-          <p className="text-gray-400 dark:text-[#7880AA] text-sm mt-3">원본 해설 방향 그대로 변형문항 풀이 작성 중...</p>
+          <p className="text-gray-400 dark:text-[#8a8f98] text-sm mt-3">원본 해설 방향 그대로 변형문항 풀이 작성 중...</p>
         </div>
       )}
 

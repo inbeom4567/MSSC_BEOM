@@ -80,10 +80,10 @@ function App() {
   const commonProps = { grade, model, guidelines }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#0A0B14] flex flex-col transition-colors">
+    <div className="min-h-screen bg-[#F8F9FB] dark:bg-[#09090b] flex flex-col transition-colors">
 
       {/* ── 헤더 ── */}
-      <header className="bg-white dark:bg-[#11131F]/90 border-b border-gray-200 dark:border-[#222644] sticky top-0 z-30 backdrop-blur-md">
+      <header className="bg-white dark:bg-[#0f1011]/90 border-b border-gray-200 dark:border-[rgba(255,255,255,0.06)] sticky top-0 z-30 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-5 h-[52px] flex items-center justify-between">
           <button
             onClick={() => setActiveFeature(null)}
@@ -92,21 +92,21 @@ function App() {
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-black shadow-[0_0_12px_rgba(108,127,255,0.35)]">
               M
             </div>
-            <span className="text-sm font-bold text-gray-900 dark:text-[#E8EAFF] tracking-tight">MathSolution</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-[#f7f8f8] tracking-tight">MathSolution</span>
           </button>
 
           <div className="flex items-center gap-2">
             {activeFeature && (
               <button
                 onClick={() => setActiveFeature(null)}
-                className="text-xs text-gray-400 dark:text-[#7880AA] hover:text-gray-600 dark:hover:text-[#E8EAFF] flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-[#222644] transition-colors"
+                className="text-xs text-gray-400 dark:text-[#8a8f98] hover:text-gray-600 dark:hover:text-[#f7f8f8] flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-gray-200 dark:border-[rgba(255,255,255,0.06)] transition-colors"
               >
                 ← 홈
               </button>
             )}
             <button
               onClick={() => setDark(d => !d)}
-              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[#222644] bg-gray-50 dark:bg-[#191C2E] text-gray-400 dark:text-[#7880AA] hover:text-gray-700 dark:hover:text-[#E8EAFF] transition-colors flex items-center justify-center text-sm"
+              className="w-8 h-8 rounded-lg border border-gray-200 dark:border-[rgba(255,255,255,0.06)] bg-gray-50 dark:bg-[#141516] text-gray-400 dark:text-[#8a8f98] hover:text-gray-700 dark:hover:text-[#f7f8f8] transition-colors flex items-center justify-center text-sm"
               title="테마 전환"
             >
               {dark ? '☀' : '🌙'}
@@ -122,10 +122,10 @@ function App() {
         <div className={activeFeature ? 'hidden' : ''}>
           <div className="py-12">
             <div className="text-center mb-10">
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-[#E8EAFF] mb-2 tracking-tight">
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-[#f7f8f8] mb-2 tracking-tight">
                 수학 유사문항의 모든 것
               </h1>
-              <p className="text-sm text-gray-400 dark:text-[#7880AA]">문제 이미지를 넣으면 유사문항과 풀이를 자동으로 생성합니다</p>
+              <p className="text-sm text-gray-400 dark:text-[#8a8f98]">문제 이미지를 넣으면 유사문항과 풀이를 자동으로 생성합니다</p>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl mx-auto">
@@ -133,14 +133,14 @@ function App() {
                 <button
                   key={f.id}
                   onClick={() => setActiveFeature(f.id)}
-                  className="group flex flex-col items-center gap-3 p-5 bg-white dark:bg-[#11131F] rounded-2xl border border-gray-200 dark:border-[#222644] hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg dark:hover:shadow-[0_4px_20px_rgba(108,127,255,0.1)] transition-all duration-200"
+                  className="group flex flex-col items-center gap-3 p-5 bg-white dark:bg-[#0f1011] rounded-2xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)] hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg dark:hover:shadow-[0_4px_20px_rgba(108,127,255,0.1)] transition-all duration-200"
                 >
                   <div className={`w-12 h-12 ${f.color} rounded-xl flex items-center justify-center text-xl text-white shadow-sm group-hover:scale-110 transition-transform`}>
                     {f.icon}
                   </div>
                   <div className="text-center">
-                    <div className="text-xs font-semibold text-gray-800 dark:text-[#E8EAFF]">{f.label}</div>
-                    <div className="text-[11px] text-gray-400 dark:text-[#7880AA] mt-0.5">{f.desc}</div>
+                    <div className="text-xs font-semibold text-gray-800 dark:text-[#f7f8f8]">{f.label}</div>
+                    <div className="text-[11px] text-gray-400 dark:text-[#8a8f98] mt-0.5">{f.desc}</div>
                   </div>
                 </button>
               ))}
@@ -148,7 +148,7 @@ function App() {
 
             {/* 홈 설정 바 */}
             <div className="mt-10 max-w-xl mx-auto">
-              <div className="bg-white dark:bg-[#11131F] rounded-2xl border border-gray-200 dark:border-[#222644] p-4 shadow-sm">
+              <div className="bg-white dark:bg-[#0f1011] rounded-2xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)] p-4 shadow-sm">
                 <div className="flex items-center gap-3 flex-wrap justify-center">
                   <SettingsBar
                     grade={grade} setGrade={setGrade}
@@ -166,7 +166,7 @@ function App() {
         {/* ===== 기능 화면 — 항상 마운트, 홈일 때만 숨김 ===== */}
         <div className={activeFeature ? 'py-5' : 'hidden'}>
           {/* 언더라인 탭 */}
-          <div className="flex gap-0 border-b border-gray-200 dark:border-[#222644] mb-6 overflow-x-auto">
+          <div className="flex gap-0 border-b border-gray-200 dark:border-[rgba(255,255,255,0.06)] mb-6 overflow-x-auto">
             {FEATURES.map((f) => (
               <button
                 key={f.id}
@@ -174,7 +174,7 @@ function App() {
                 className={`px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-all ${
                   activeFeature === f.id
                     ? 'border-indigo-500 text-indigo-500 dark:text-indigo-400 font-semibold'
-                    : 'border-transparent text-gray-400 dark:text-[#7880AA] hover:text-gray-600 dark:hover:text-[#E8EAFF]'
+                    : 'border-transparent text-gray-400 dark:text-[#8a8f98] hover:text-gray-600 dark:hover:text-[#f7f8f8]'
                 }`}
               >
                 {f.label}
@@ -202,7 +202,7 @@ function App() {
 
       {/* ── 하단 고정 설정바 (기능 화면) ── */}
       {activeFeature && !['history', 'prompt', 'scan', 'guide'].includes(activeFeature) && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-[#11131F]/90 border-t border-gray-200 dark:border-[#222644] z-30 shadow-lg backdrop-blur-md">
+        <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-[#0f1011]/90 border-t border-gray-200 dark:border-[rgba(255,255,255,0.06)] z-30 shadow-lg backdrop-blur-md">
           <div className="max-w-5xl mx-auto px-5 py-2.5 flex items-center gap-3 flex-wrap justify-center">
             <SettingsBar
               grade={grade} setGrade={setGrade}
@@ -261,37 +261,37 @@ function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesN
   return (
     <>
       <div className="flex items-center gap-2">
-        <span className="text-[11px] font-semibold text-gray-400 dark:text-[#7880AA] uppercase tracking-wide">학년</span>
+        <span className="text-[11px] font-semibold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide">학년</span>
         <select
           value={grade}
           onChange={(e) => setGrade(e.target.value)}
-          className="text-[13px] border border-gray-200 dark:border-[#2E3356] rounded-lg px-2.5 py-1.5 bg-gray-50 dark:bg-[#191C2E] text-gray-700 dark:text-[#E8EAFF] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 transition-colors"
+          className="text-[13px] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg px-2.5 py-1.5 bg-gray-50 dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 transition-colors"
         >
           {GRADES.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
         </select>
       </div>
 
-      <div className="w-px h-5 bg-gray-200 dark:bg-[#2E3356]" />
+      <div className="w-px h-5 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
 
       <div className="flex items-center gap-2">
-        <span className="text-[11px] font-semibold text-gray-400 dark:text-[#7880AA] uppercase tracking-wide">모델</span>
+        <span className="text-[11px] font-semibold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide">모델</span>
         <select
           value={model}
           onChange={(e) => setModel(e.target.value)}
-          className="text-[13px] border border-gray-200 dark:border-[#2E3356] rounded-lg px-2.5 py-1.5 bg-gray-50 dark:bg-[#191C2E] text-gray-700 dark:text-[#E8EAFF] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 transition-colors"
+          className="text-[13px] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg px-2.5 py-1.5 bg-gray-50 dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 transition-colors"
         >
           {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
       </div>
 
-      <div className="w-px h-5 bg-gray-200 dark:bg-[#2E3356]" />
+      <div className="w-px h-5 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
 
       <button
         onClick={onOpenModal}
         className={`flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border transition-colors ${
           guidelines
             ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-            : 'border-gray-200 dark:border-[#2E3356] bg-gray-50 dark:bg-[#191C2E] text-gray-500 dark:text-[#7880AA] hover:bg-gray-100 dark:hover:bg-[#212540]'
+            : 'border-gray-200 dark:border-[rgba(255,255,255,0.08)] bg-gray-50 dark:bg-[#141516] text-gray-500 dark:text-[#8a8f98] hover:bg-gray-100 dark:hover:bg-[#1a1a1c]'
         }`}
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -302,7 +302,7 @@ function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesN
 
       {guidelines && (
         <>
-          <span className="text-[11px] text-gray-400 dark:text-[#7880AA] truncate max-w-[160px]">
+          <span className="text-[11px] text-gray-400 dark:text-[#8a8f98] truncate max-w-[160px]">
             {guidelinesName || guidelines.slice(0, 25)}
           </span>
           <button

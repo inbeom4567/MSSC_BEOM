@@ -45,7 +45,7 @@ export default function LatexRenderer({ text }) {
   const parts = useMemo(() => renderLatexText(text), [text])
 
   return (
-    <div className="text-gray-700 dark:text-[#C8CADF] leading-relaxed whitespace-pre-wrap">
+    <div className="text-gray-700 dark:text-[#d0d0d5] leading-relaxed whitespace-pre-wrap">
       {parts.map((part, i) => {
         if (part.type === 'latex-block') {
           return <div key={i} className="my-2" dangerouslySetInnerHTML={{ __html: part.html }} />
