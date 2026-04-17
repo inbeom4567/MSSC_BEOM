@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import base64
 import io
 from typing import List, Optional
@@ -123,7 +123,7 @@ class PageItem(BaseModel):
     page_index: int
     image_base64: str
     media_type: str = "image/png"
-    bboxes: list = []
+    bboxes: List = Field(default_factory=list)
 
 
 class ScanCropRequest(BaseModel):
@@ -565,15 +565,19 @@ async def scan_crop_process(req: ScanCropRequest):
                 if not page:
                     raise ValueError(f"페이지 {bbox.page_index}를 찾을 수 없습니다.")
 
-                cropped_b64, cropped_type = _crop_image(
+                cropped_b64, cropped_type = await asyncio.to_thread(
+                    _crop_image,
                     page.image_base64, page.media_type,
                     bbox.x, bbox.y, bbox.w, bbox.h
                 )
 
-                ocr_data = ocr_scan_general(cropped_b64, cropped_type)
-                result = await claude_service.process_scan(
-                    ocr_data, "general", req.variant_count,
-                    req.model, req.grade
+                ocr_data = await asyncio.to_thread(ocr_scan_general, cropped_b64, cropped_type)
+                result = await asyncio.wait_for(
+                    claude_service.process_scan(
+                        ocr_data, "general", req.variant_count,
+                        req.model, req.grade
+                    ),
+                    timeout=300.0
                 )
 
                 entry = {
@@ -603,7 +607,7 @@ async def scan_crop_process(req: ScanCropRequest):
                 "total": len(all_results),
             })
 
-        yield f"data: {json_module.dumps({'type': 'done', 'total': len(selected)})}\n\n"
+        yield f"data: {json_module.dumps({'type': 'done', 'total': len(selected)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
