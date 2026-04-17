@@ -612,6 +612,68 @@ async def scan_crop_process(req: ScanCropRequest):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+class ScanVariantRequest(BaseModel):
+    ocr_data: dict
+    scan_mode: str = "general"
+    variant_count: int = 1
+    model: str = "sonnet"
+    grade: str = "none"
+    output_mode: str = "variant"
+
+
+@app.post("/api/scan-generate-variants")
+async def scan_generate_variants(req: ScanVariantRequest):
+    """OCR 데이터를 받아 유사문항 생성."""
+    logger.info(f"스캔 유사문항 생성: mode={req.scan_mode}, variants={req.variant_count}, model={req.model}, output_mode={req.output_mode}")
+    try:
+        result = await claude_service.process_scan(
+            req.ocr_data, req.scan_mode, req.variant_count, req.model, req.grade,
+            output_mode=req.output_mode,
+        )
+        logger.info(f"스캔 유사문항 생성 완료: {result['usage']['total_tokens']} tokens")
+
+        entry_id = history_service.save_history({
+            "type": "scan_variant",
+            "mode": req.scan_mode,
+            "model": req.model,
+            "output_mode": req.output_mode,
+            "result": result["text"],
+            "usage": result["usage"],
+        })
+
+        return {
+            "result": result["text"],
+            "graphs": result.get("graphs", []),
+            "usage": result["usage"],
+            "ocr_data": result.get("ocr_data", {}),
+            "history_id": entry_id,
+        }
+    except Exception as e:
+        logger.error(f"스캔 유사문항 생성 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TextToHwpxRequest(BaseModel):
+    texts: List[str]  # 각 문제별 결과 텍스트 리스트
+    filename: str = "scan_result"
+
+
+@app.post("/api/text-to-hwpx")
+async def text_to_hwpx(req: TextToHwpxRequest):
+    """여러 개의 텍스트 결과를 하나의 HWPX 파일로 변환."""
+    try:
+        combined = "\n\n".join(req.texts)
+        hwpx_bytes = create_hwpx(combined)
+        store_info = _store_hwpx(hwpx_bytes)
+        return {
+            "download_id": store_info["download_id"],
+            "filename": f"{req.filename}.hwpx",
+        }
+    except Exception as e:
+        logger.error(f"HWPX 변환 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/analyze-image")
 async def analyze_image_endpoint(file: UploadFile = File(...)):
     """원본 문제 이미지에서 그래프/그림을 분석하여 구조화된 데이터 반환"""
