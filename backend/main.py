@@ -19,7 +19,8 @@ import asyncio
 import fitz  # pymupdf
 from PIL import Image
 import time
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
+import json as json_module
 import uuid
 
 # 임시 HWPX 파일 저장 (TTL 1시간)
@@ -105,6 +106,33 @@ class RefineRequest(BaseModel):
     original_result: str
     instruction: str
     model: str = "sonnet"
+
+
+class BboxItem(BaseModel):
+    id: str
+    page_index: int
+    x: float
+    y: float
+    w: float
+    h: float
+    label: str = ""
+    selected: bool = True
+
+
+class PageItem(BaseModel):
+    page_index: int
+    image_base64: str
+    media_type: str = "image/png"
+    bboxes: list = []
+
+
+class ScanCropRequest(BaseModel):
+    pages: List[PageItem]
+    confirmed_bboxes: List[BboxItem]
+    output_mode: str = "type_only"
+    variant_count: int = 1
+    model: str = "sonnet"
+    grade: str = "none"
 
 
 @app.get("/api/health")
@@ -514,6 +542,70 @@ async def scan_process(
     except Exception as e:
         logger.error(f"스캔 처리 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scan-crop-process")
+async def scan_crop_process(req: ScanCropRequest):
+    """확정된 bbox로 문제 하나씩 처리, SSE 스트리밍 응답."""
+
+    async def event_stream():
+        selected = [b for b in req.confirmed_bboxes if b.selected]
+        page_map = {p.page_index: p for p in req.pages}
+        all_results = []
+
+        for i, bbox in enumerate(selected):
+            problem_id = bbox.id
+            label = bbox.label or f"문제 {i + 1}"
+            logger.info(f"처리 시작: {label} ({problem_id})")
+
+            yield f"data: {json_module.dumps({'type': 'progress', 'problem_id': problem_id, 'label': label, 'status': 'processing'}, ensure_ascii=False)}\n\n"
+
+            try:
+                page = page_map.get(bbox.page_index)
+                if not page:
+                    raise ValueError(f"페이지 {bbox.page_index}를 찾을 수 없습니다.")
+
+                cropped_b64, cropped_type = _crop_image(
+                    page.image_base64, page.media_type,
+                    bbox.x, bbox.y, bbox.w, bbox.h
+                )
+
+                ocr_data = ocr_scan_general(cropped_b64, cropped_type)
+                result = await claude_service.process_scan(
+                    ocr_data, "general", req.variant_count,
+                    req.model, req.grade
+                )
+
+                entry = {
+                    "problem_id": problem_id,
+                    "label": label,
+                    "result": result["text"],
+                    "graphs": result.get("graphs", []),
+                    "ocr_data": result.get("ocr_data", {}),
+                    "output_mode": req.output_mode,
+                    "usage": result["usage"],
+                }
+                all_results.append(entry)
+                logger.info(f"처리 완료: {label}")
+
+                yield f"data: {json_module.dumps({'type': 'result', **entry}, ensure_ascii=False)}\n\n"
+
+            except Exception as e:
+                logger.error(f"처리 에러 ({label}): {e}")
+                yield f"data: {json_module.dumps({'type': 'error', 'problem_id': problem_id, 'label': label, 'error': str(e)}, ensure_ascii=False)}\n\n"
+
+        if all_results:
+            history_service.save_history({
+                "type": "scan_crop",
+                "output_mode": req.output_mode,
+                "model": req.model,
+                "results": all_results,
+                "total": len(all_results),
+            })
+
+        yield f"data: {json_module.dumps({'type': 'done', 'total': len(selected)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.post("/api/analyze-image")
