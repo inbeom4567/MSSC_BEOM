@@ -355,7 +355,7 @@ def _make_equation_xml(script: str, eq_id: int) -> str:
         f'vertAlign="TOP" horzAlign="LEFT" vertOffset="0" horzOffset="0" />'
         f'<hp:outMargin left="56" right="56" top="0" bottom="0" />'
         f'<hp:shapeComment>수식 입니다.</hp:shapeComment>'
-        f'<hp:script>{script}</hp:script>'
+        f'<hp:script>{script.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}</hp:script>'
         f'</hp:equation>'
     )
 
