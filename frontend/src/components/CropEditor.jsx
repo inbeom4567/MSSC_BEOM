@@ -29,6 +29,8 @@ export default function CropEditor({ pages, onConfirm }) {
     return map
   })
 
+  const [zoom, setZoom] = useState(1)
+
   const imgRef = useRef(null)
   const containerRef = useRef(null)
   const dragState = useRef(null)  // { type, id, startX, startY, origBbox, isNewBox, newId }
@@ -191,6 +193,19 @@ export default function CropEditor({ pages, onConfirm }) {
           </button>
         </div>
         <div style={{ width: 1, height: 22, background: colors.border, margin: '0 4px' }} />
+        {/* 줌 컨트롤 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button onClick={() => setZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+            style={{ padding: '4px 10px', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: `1px solid ${colors.border}`, background: colors.toolbar, color: colors.text }}>−</button>
+          <span style={{ fontSize: 11, minWidth: 38, textAlign: 'center', color: colors.muted }}>{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))}
+            style={{ padding: '4px 10px', borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: 'pointer', border: `1px solid ${colors.border}`, background: colors.toolbar, color: colors.text }}>＋</button>
+          {zoom !== 1 && (
+            <button onClick={() => setZoom(1)}
+              style={{ padding: '4px 8px', borderRadius: 5, fontSize: 11, cursor: 'pointer', border: `1px solid ${colors.border}`, background: colors.toolbar, color: colors.muted }}>원본</button>
+          )}
+        </div>
+        <div style={{ width: 1, height: 22, background: colors.border, margin: '0 4px' }} />
         {/* 페이지 네비 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: colors.muted }}>
           {[
@@ -223,10 +238,10 @@ export default function CropEditor({ pages, onConfirm }) {
 
       {/* 본문 */}
       <div style={{ display: 'flex', height: 620 }}>
-        {/* 페이지 뷰어 */}
-        <div ref={containerRef} style={{ flex: 1.3, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 12px', background: isDark ? '#080A12' : '#ECEEF2' }}
+        {/* 페이지 뷰어 (줌 시 스크롤 가능) */}
+        <div ref={containerRef} style={{ flex: 1.3, display: 'flex', alignItems: zoom > 1 ? 'flex-start' : 'center', justifyContent: 'center', padding: '20px 12px', background: isDark ? '#080A12' : '#ECEEF2', overflow: 'auto' }}
           onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 0}
               style={{ width: 38, height: 38, borderRadius: '50%', border: `1px solid ${colors.border}`, background: colors.sidebar, color: colors.muted, cursor: currentPage === 0 ? 'not-allowed' : 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: currentPage === 0 ? 0.4 : 1 }}>
               ◀
@@ -238,7 +253,7 @@ export default function CropEditor({ pages, onConfirm }) {
                 <img ref={imgRef}
                   src={`data:${page.media_type};base64,${page.image_base64}`}
                   alt={`페이지 ${currentPage + 1}`}
-                  style={{ display: 'block', maxWidth: 420, maxHeight: 594, width: 'auto', height: 'auto', borderRadius: 6, border: `1px solid ${colors.border}`, userSelect: 'none', pointerEvents: 'none' }}
+                  style={{ display: 'block', width: `${420 * zoom}px`, maxWidth: 'none', height: 'auto', borderRadius: 6, border: `1px solid ${colors.border}`, userSelect: 'none', pointerEvents: 'none' }}
                   draggable={false}
                 />
                 {/* bbox 오버레이 */}

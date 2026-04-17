@@ -38,6 +38,7 @@ function App() {
   const [activeFeature, setActiveFeature] = useState(null)
   const [grade, setGrade] = useState('none')
   const [model, setModel] = useState('sonnet')
+  const [scanStatus, setScanStatus] = useState(null)  // { processing, total, completed, step }
   const [guidelines, setGuidelines] = useState('')
   const [guidelinesName, setGuidelinesName] = useState('')
   const [savedGuidelines, setSavedGuidelines] = useState(() => {
@@ -114,9 +115,9 @@ function App() {
 
       {/* ── 메인 ── */}
       <main className="flex-1 max-w-5xl mx-auto px-5 w-full pb-24">
-        {!activeFeature ? (
 
-          /* ===== 홈 화면 ===== */
+        {/* ===== 홈 화면 (activeFeature 없을 때만 표시) ===== */}
+        <div className={activeFeature ? 'hidden' : ''}>
           <div className="py-12">
             <div className="text-center mb-10">
               <h1 className="text-2xl font-bold text-gray-800 dark:text-[#E8EAFF] mb-2 tracking-tight">
@@ -158,36 +159,42 @@ function App() {
               </div>
             </div>
           </div>
+        </div>
 
-        ) : (
-
-          /* ===== 기능 화면 ===== */
-          <div className="py-5">
-            {/* 언더라인 탭 */}
-            <div className="flex gap-0 border-b border-gray-200 dark:border-[#222644] mb-6 overflow-x-auto">
-              {FEATURES.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => setActiveFeature(f.id)}
-                  className={`px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-all ${
-                    activeFeature === f.id
-                      ? 'border-indigo-500 text-indigo-500 dark:text-indigo-400 font-semibold'
-                      : 'border-transparent text-gray-400 dark:text-[#7880AA] hover:text-gray-600 dark:hover:text-[#E8EAFF]'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            {activeFeature === 'create' && <TabCreateVariant {...commonProps} />}
-            {activeFeature === 'solve' && <TabSolveVariant {...commonProps} />}
-            {activeFeature === 'scan' && <TabScan {...commonProps} />}
-            {activeFeature === 'hwpx' && <TabHwpx {...commonProps} />}
-            {activeFeature === 'history' && <TabHistory />}
-            {activeFeature === 'prompt' && <TabPromptEdit />}
+        {/* ===== 기능 화면 — 항상 마운트, 홈일 때만 숨김 ===== */}
+        <div className={activeFeature ? 'py-5' : 'hidden'}>
+          {/* 언더라인 탭 */}
+          <div className="flex gap-0 border-b border-gray-200 dark:border-[#222644] mb-6 overflow-x-auto">
+            {FEATURES.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setActiveFeature(f.id)}
+                className={`px-4 py-3 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-all ${
+                  activeFeature === f.id
+                    ? 'border-indigo-500 text-indigo-500 dark:text-indigo-400 font-semibold'
+                    : 'border-transparent text-gray-400 dark:text-[#7880AA] hover:text-gray-600 dark:hover:text-[#E8EAFF]'
+                }`}
+              >
+                {f.label}
+                {f.id === 'scan' && scanStatus?.processing && (
+                  <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-sky-500 dark:bg-violet-400 animate-pulse" />
+                )}
+              </button>
+            ))}
           </div>
-        )}
+
+          {activeFeature === 'create' && <TabCreateVariant {...commonProps} />}
+          {activeFeature === 'solve' && <TabSolveVariant {...commonProps} />}
+          {activeFeature === 'hwpx' && <TabHwpx {...commonProps} />}
+          {activeFeature === 'history' && <TabHistory />}
+          {activeFeature === 'prompt' && <TabPromptEdit />}
+
+          {/* TabScan — 항상 마운트 유지 (탭 이동해도 처리 계속됨) */}
+          <div className={activeFeature === 'scan' ? '' : 'hidden'}>
+            <TabScan {...commonProps} onStatusChange={setScanStatus} />
+          </div>
+        </div>
+
       </main>
 
       {/* ── 하단 고정 설정바 (기능 화면) ── */}
@@ -203,6 +210,32 @@ function App() {
             />
           </div>
         </div>
+      )}
+
+      {/* ── 스캔 처리 중 플로팅 배지 (스캔 탭 아닌 곳에 있을 때) ── */}
+      {scanStatus?.processing && activeFeature !== 'scan' && (
+        <button
+          onClick={() => setActiveFeature('scan')}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-sky-600 dark:bg-violet-600 text-white px-4 py-2.5 rounded-full shadow-xl hover:opacity-90 transition-all border border-sky-500/40 dark:border-violet-500/40"
+        >
+          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+          </svg>
+          <span className="text-sm font-semibold">
+            스캔 처리 중 {scanStatus.completed}/{scanStatus.total}
+          </span>
+          <span className="text-xs opacity-70">→ 보기</span>
+        </button>
+      )}
+      {scanStatus?.step === 'done' && activeFeature !== 'scan' && (
+        <button
+          onClick={() => setActiveFeature('scan')}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-emerald-600 dark:bg-emerald-600 text-white px-4 py-2.5 rounded-full shadow-xl hover:opacity-90 transition-all border border-emerald-500/40"
+        >
+          <span className="text-sm">✓</span>
+          <span className="text-sm font-semibold">스캔 완료 → 결과 보기</span>
+        </button>
       )}
 
       {/* 지침 모달 */}

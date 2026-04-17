@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import CropEditor from './CropEditor'
 import ScanResultCard from './ScanResultCard'
 
@@ -10,7 +10,7 @@ const OUTPUT_MODES = [
   { value: 'variant', label: '유사문항 생성', desc: 'OCR + 유사문항까지' },
 ]
 
-export default function TabScan({ grade, model }) {
+export default function TabScan({ grade, model, onStatusChange }) {
   const [step, setStep] = useState('upload')  // upload | detecting | editing | selecting | processing | done
   const [file, setFile] = useState(null)
   const [dragging, setDragging] = useState(false)
@@ -21,6 +21,19 @@ export default function TabScan({ grade, model }) {
   const [cards, setCards] = useState([])
   const [error, setError] = useState(null)
   const [hwpxUrl, setHwpxUrl] = useState(null)
+
+  // 부모에게 처리 상태 알림
+  useEffect(() => {
+    if (!onStatusChange) return
+    if (step === 'processing') {
+      const completed = cards.filter(c => c.status === 'done' || c.status === 'error').length
+      onStatusChange({ processing: true, step, total: cards.length, completed })
+    } else if (step === 'done') {
+      onStatusChange({ processing: false, step, total: cards.length, completed: cards.length })
+    } else {
+      onStatusChange(null)
+    }
+  }, [step, cards, onStatusChange])
 
   const handleFile = useCallback((f) => {
     if (!f) return
