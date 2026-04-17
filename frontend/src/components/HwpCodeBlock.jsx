@@ -2,9 +2,51 @@ import { useMemo } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 
+// 중첩 괄호를 고려하여 top-level { } 셀 추출
+function extractBraceCells(str) {
+  const cells = []
+  let depth = 0, start = -1
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === '{') { if (depth === 0) start = i + 1; depth++ }
+    else if (str[i] === '}') {
+      depth--
+      if (depth === 0 && start >= 0) { cells.push(str.slice(start, i).trim()); start = -1 }
+    }
+  }
+  return cells
+}
+
 // HWP 수식 코드 → LaTeX 변환 (공유 유틸)
 export function hwpToLatex(hwp) {
   let s = (hwp || '').trim()
+
+  // HWP matrix{rows}{cols} { cell }... → \begin{cases} (조각함수 fallback)
+  // \left\{? matrix{n}{m} cells \right.? 패턴 처리
+  s = s.replace(/\\left\s*\\\{?\s*matrix\s*\{(\d+)\}\s*\{(\d+)\}([\s\S]*?)\\right\s*\./g, (_, rows, cols, body) => {
+    const r = parseInt(rows), c = parseInt(cols)
+    const cells = extractBraceCells(body)
+    // Claude가 matrix{2}{1}인데 실제로는 2열로 쓴 경우 자동 감지
+    const actualCols = cells.length > 0 ? Math.ceil(cells.length / r) : c
+    const caseRows = []
+    for (let i = 0; i < r && i * actualCols < cells.length; i++) {
+      caseRows.push(cells.slice(i * actualCols, (i + 1) * actualCols).join(' & '))
+    }
+    return `\\begin{cases} ${caseRows.join(' \\\\ ')} \\end{cases}`
+  })
+  // matrix 단독 (left\{ 없는 경우)
+  s = s.replace(/\bmatrix\s*\{(\d+)\}\s*\{(\d+)\}((?:\s*\{(?:[^{}]|\{[^{}]*\})*\})+)/g, (_, rows, cols, body) => {
+    const r = parseInt(rows), c = parseInt(cols)
+    const cells = extractBraceCells(body)
+    const actualCols = cells.length > 0 ? Math.ceil(cells.length / r) : c
+    const caseRows = []
+    for (let i = 0; i < r && i * actualCols < cells.length; i++) {
+      caseRows.push(cells.slice(i * actualCols, (i + 1) * actualCols).join(' & '))
+    }
+    // 2열이면 cases, 그 외는 array
+    if (actualCols === 2) return `\\begin{cases} ${caseRows.join(' \\\\ ')} \\end{cases}`
+    const colSpec = 'c'.repeat(actualCols)
+    return `\\begin{array}{${colSpec}} ${caseRows.join(' \\\\ ')} \\end{array}`
+  })
 
   // 백틱 연산자 처리: `^` → ^, `_` → _
   s = s.replace(/`\^`/g, '^')
@@ -20,6 +62,7 @@ export function hwpToLatex(hwp) {
   s = s.replace(/\bright\s*\}/g, '\\right\\}')
   s = s.replace(/\bleft\s*\|/g, '\\left|')
   s = s.replace(/\bright\s*\|/g, '\\right|')
+  s = s.replace(/\bright\s*\./g, '\\right.')
 
   // 관계 기호
   s = s.replace(/\bge\b/g, '\\geq')
@@ -54,6 +97,17 @@ export function hwpToLatex(hwp) {
   s = s.replace(/\bldots\b/g, '\\ldots')
   s = s.replace(/\bcdots\b/g, '\\cdots')
   s = s.replace(/\bvdots\b/g, '\\vdots')
+
+  // cases (연립/경우 함수): cases { `x && 조건1 # `f(x) && 조건2 }
+  s = s.replace(/\bcases\s*\{([^}]*)\}/g, (_, inner) => {
+    // # → \\, && → &, 백틱 처리
+    const rows = inner.split('#').map(row =>
+      row.trim()
+        .replace(/`([^`\s]+)`/g, '$1')  // 이미 처리됐을 수 있지만 재처리
+        .replace(/&&/g, '&')
+    ).join(' \\\\ ')
+    return `\\begin{cases} ${rows} \\end{cases}`
+  })
 
   // 그리스 문자 (소문자)
   const greeks = ['alpha','beta','gamma','delta','epsilon','zeta','eta','theta',

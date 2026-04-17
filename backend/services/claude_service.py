@@ -429,6 +429,7 @@ class ClaudeService:
             f"{ocr_summary}\n\n"
             f"다음을 수행하세요:\n\n"
             f"1. 【HWP 변환】 문제 텍스트의 모든 수식을 한글 수식입력기 코드(대괄호 형식)로 변환하세요.\n"
+            f"   - LaTeX \\begin{{cases}}...\\end{{cases}} → 반드시 HWP `cases {{ 값1 && 조건1 # 값2 && 조건2 }}` 형식으로 변환. `matrix{{}}{{}}` 사용 절대 금지.\n"
         )
 
         if output_mode == "type_only":
