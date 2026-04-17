@@ -16,6 +16,31 @@ function extractBraceCells(str) {
   return cells
 }
 
+// cases{ `식 && 조건# `식 && 조건 } → \begin{cases}...\end{cases}
+// 중첩 {} 를 brace-counting 으로 처리
+function convertCasesBlocks(s) {
+  const re = /\bcases\s*\{/g
+  let result = '', lastIndex = 0, m
+  while ((m = re.exec(s)) !== null) {
+    result += s.slice(lastIndex, m.index)
+    const openPos = m.index + m[0].length - 1
+    let depth = 0, end = -1
+    for (let i = openPos; i < s.length; i++) {
+      if (s[i] === '{') depth++
+      else if (s[i] === '}') { depth--; if (depth === 0) { end = i; break } }
+    }
+    if (end === -1) { result += s.slice(m.index); lastIndex = s.length; break }
+    const inner = s.slice(openPos + 1, end)
+    const rows = inner.split('#').map(row =>
+      row.trim().replace(/^`\s*/, '').replace(/&&/g, '&')
+    ).join(' \\\\ ')
+    result += `\\begin{cases} ${rows} \\end{cases}`
+    lastIndex = end + 1
+    re.lastIndex = lastIndex
+  }
+  return result + s.slice(lastIndex)
+}
+
 // HWP 수식 코드 → LaTeX 변환 (공유 유틸)
 export function hwpToLatex(hwp) {
   let s = (hwp || '').trim()
@@ -52,6 +77,7 @@ export function hwpToLatex(hwp) {
   s = s.replace(/`\^`/g, '^')
   s = s.replace(/`_`/g, '_')
   s = s.replace(/`([^`\s]+)`/g, '$1')
+  s = s.replace(/`/g, '')  // 나머지 백틱(작은 공백) 제거
 
   // HWP 괄호 → LaTeX
   s = s.replace(/\bleft\s*\(/g, '\\left(')
@@ -70,8 +96,10 @@ export function hwpToLatex(hwp) {
   s = s.replace(/\bne\b/g, '\\neq')
   s = s.replace(/\bapprox\b/g, '\\approx')
   s = s.replace(/\bsim\b/g, '\\sim')
+  s = s.replace(/\+-/g, '\\pm')   // HWP ±  (pm 사용 금지 — +- 만 변환)
   s = s.replace(/\bpm\b/g, '\\pm')
   s = s.replace(/\bmp\b/g, '\\mp')
+  s = s.replace(/-\+/g, '\\mp')   // HWP ∓
 
   // 연산자
   s = s.replace(/\bcdot\b/g, '\\cdot')
@@ -86,6 +114,10 @@ export function hwpToLatex(hwp) {
   s = s.replace(/\bint\b/g, '\\int')
   s = s.replace(/\blim\b/g, '\\lim')
   s = s.replace(/\binfty\b/g, '\\infty')
+  s = s.replace(/\binf\b/g, '\\infty')   // HWP inf = ∞
+  s = s.replace(/\btherefore\b/g, '\\therefore')
+  s = s.replace(/\bbecause\b/g, '\\because')
+  s = s.replace(/->/g, '\\to')
   s = s.replace(/\blog\b/g, '\\log')
   s = s.replace(/\bln\b/g, '\\ln')
   s = s.replace(/\bsin\b/g, '\\sin')
@@ -98,16 +130,9 @@ export function hwpToLatex(hwp) {
   s = s.replace(/\bcdots\b/g, '\\cdots')
   s = s.replace(/\bvdots\b/g, '\\vdots')
 
-  // cases (연립/경우 함수): cases { `x && 조건1 # `f(x) && 조건2 }
-  s = s.replace(/\bcases\s*\{([^}]*)\}/g, (_, inner) => {
-    // # → \\, && → &, 백틱 처리
-    const rows = inner.split('#').map(row =>
-      row.trim()
-        .replace(/`([^`\s]+)`/g, '$1')  // 이미 처리됐을 수 있지만 재처리
-        .replace(/&&/g, '&')
-    ).join(' \\\\ ')
-    return `\\begin{cases} ${rows} \\end{cases}`
-  })
+  // cases (연립/경우 함수): cases{ `식 && 조건# `식 && 조건 }
+  // 중첩 {} 처리를 위해 brace-counting 방식 사용
+  s = convertCasesBlocks(s)
 
   // 그리스 문자 (소문자)
   const greeks = ['alpha','beta','gamma','delta','epsilon','zeta','eta','theta',
