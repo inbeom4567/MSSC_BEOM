@@ -146,20 +146,6 @@ function App() {
               ))}
             </div>
 
-            {/* 홈 설정 바 */}
-            <div className="mt-10 max-w-xl mx-auto">
-              <div className="bg-white dark:bg-[#0f1011] rounded-2xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)] p-4 shadow-sm">
-                <div className="flex items-center gap-3 flex-wrap justify-center">
-                  <SettingsBar
-                    grade={grade} setGrade={setGrade}
-                    model={model} setModel={setModel}
-                    guidelines={guidelines} guidelinesName={guidelinesName}
-                    setGuidelines={setGuidelines} setGuidelinesName={setGuidelinesName}
-                    onOpenModal={() => setShowGuidelinesModal(true)}
-                  />
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
