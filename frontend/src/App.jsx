@@ -5,6 +5,7 @@ import TabHwpx from './components/TabHwpx'
 import TabHistory from './components/TabHistory'
 import TabPromptEdit from './components/TabPromptEdit'
 import TabScan from './components/TabScan'
+import TabGuide from './components/TabGuide'
 import GuidelinesModal from './components/GuidelinesModal'
 
 const FEATURES = [
@@ -14,6 +15,7 @@ const FEATURES = [
   { id: 'hwpx', label: '한글 파일', desc: '.hwpx → 유사문항/해설', icon: '⬡', color: 'bg-orange-500' },
   { id: 'history', label: '히스토리', desc: '저장 · 비교', icon: '≋', color: 'bg-slate-500' },
   { id: 'prompt', label: '프롬프트 설정', desc: '피드백 반영', icon: '⚙', color: 'bg-slate-500' },
+  { id: 'guide', label: '사용설명서', desc: '단계별 사용법', icon: '?', color: 'bg-teal-500' },
 ]
 
 const GRADES = [
@@ -126,7 +128,7 @@ function App() {
               <p className="text-sm text-gray-400 dark:text-[#7880AA]">문제 이미지를 넣으면 유사문항과 풀이를 자동으로 생성합니다</p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-3xl mx-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl mx-auto">
               {FEATURES.map((f) => (
                 <button
                   key={f.id}
@@ -188,6 +190,7 @@ function App() {
           {activeFeature === 'hwpx' && <TabHwpx {...commonProps} />}
           {activeFeature === 'history' && <TabHistory />}
           {activeFeature === 'prompt' && <TabPromptEdit />}
+          {activeFeature === 'guide' && <TabGuide />}
 
           {/* TabScan — 항상 마운트 유지 (탭 이동해도 처리 계속됨) */}
           <div className={activeFeature === 'scan' ? '' : 'hidden'}>
@@ -198,7 +201,7 @@ function App() {
       </main>
 
       {/* ── 하단 고정 설정바 (기능 화면) ── */}
-      {activeFeature && !['history', 'prompt', 'scan'].includes(activeFeature) && (
+      {activeFeature && !['history', 'prompt', 'scan', 'guide'].includes(activeFeature) && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-[#11131F]/90 border-t border-gray-200 dark:border-[#222644] z-30 shadow-lg backdrop-blur-md">
           <div className="max-w-5xl mx-auto px-5 py-2.5 flex items-center gap-3 flex-wrap justify-center">
             <SettingsBar
