@@ -580,7 +580,7 @@ async def scan_crop_process(req: ScanCropRequest):
                 result = await asyncio.wait_for(
                     claude_service.process_scan(
                         ocr_data, "general", req.variant_count,
-                        req.model, req.grade
+                        req.model, req.grade, req.output_mode
                     ),
                     timeout=300.0
                 )
