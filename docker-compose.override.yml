@@ -1,0 +1,9 @@
+services:
+  backend:
+    ports:
+      - "8002:8001"
+  frontend:
+    ports:
+      - "5174:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8002

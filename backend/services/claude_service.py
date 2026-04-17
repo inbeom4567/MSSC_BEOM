@@ -387,7 +387,7 @@ class ClaudeService:
             "usage": _make_usage_info(message, model_id),
         }
 
-    async def process_scan(self, ocr_data: dict, mode: str, variant_count: int, model: str, grade: str) -> dict:
+    async def process_scan(self, ocr_data: dict, mode: str, variant_count: int, model: str, grade: str, output_mode: str = "variant") -> dict:
         """스캔본 처리: LaTeX OCR → HWP 변환 + 해설 작성(필요시) + 유사문항 생성.
 
         ocr_data:

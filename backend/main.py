@@ -1,22 +1,68 @@
 import logging
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import base64
+import io
 from typing import List, Optional
 from pathlib import Path
 
 from services.claude_service import ClaudeService
 from services import history_service
 from services.hwpx_service import read_hwpx, create_hwpx, split_problems
-from services.gemini_service import analyze_graph, recognize_handwriting, ocr_scan_general, ocr_scan_student_paper
+from services.gemini_service import (
+    analyze_graph, recognize_handwriting,
+    ocr_scan_general, ocr_scan_student_paper,
+    detect_problem_bboxes,
+)
 import asyncio
+import fitz  # pymupdf
+from PIL import Image
 import time
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
+import json as json_module
 import uuid
 
 # 임시 HWPX 파일 저장 (TTL 1시간)
 _hwpx_store = {}  # {id: {"data": bytes, "created_at": float}}
+
+
+def _pdf_to_images(pdf_bytes: bytes) -> list:
+    """PDF를 페이지별 PNG base64 이미지 리스트로 변환.
+    Returns: [{"image_base64": str, "media_type": "image/png"}, ...]
+    """
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        pages = []
+        for page in doc:
+            pix = page.get_pixmap(dpi=150)
+            png_bytes = pix.tobytes("png")
+            b64 = base64.b64encode(png_bytes).decode()
+            pages.append({"image_base64": b64, "media_type": "image/png"})
+        return pages
+    finally:
+        doc.close()
+
+
+def _crop_image(image_base64: str, media_type: str, x: float, y: float, w: float, h: float) -> tuple:
+    """bbox 비율 좌표로 이미지를 크롭하여 (base64, media_type) 반환."""
+    img_bytes = base64.b64decode(image_base64)
+    img = Image.open(io.BytesIO(img_bytes))
+    iw, ih = img.size
+    left = int(x * iw)
+    top = int(y * ih)
+    right = int((x + w) * iw)
+    bottom = int((y + h) * ih)
+    # 경계 클리핑
+    left, top = max(0, left), max(0, top)
+    right, bottom = min(iw, right), min(ih, bottom)
+    # 빈 crop 방지
+    if right <= left or bottom <= top:
+        raise ValueError(f"Invalid bbox: empty crop area ({left},{top},{right},{bottom}). Check bbox coordinates.")
+    cropped = img.crop((left, top, right, bottom))
+    buf = io.BytesIO()
+    cropped.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode(), "image/png"
 
 
 def _cleanup_store():
@@ -60,6 +106,33 @@ class RefineRequest(BaseModel):
     original_result: str
     instruction: str
     model: str = "sonnet"
+
+
+class BboxItem(BaseModel):
+    id: str
+    page_index: int
+    x: float
+    y: float
+    w: float
+    h: float
+    label: str = ""
+    selected: bool = True
+
+
+class PageItem(BaseModel):
+    page_index: int
+    image_base64: str
+    media_type: str = "image/png"
+    bboxes: List = Field(default_factory=list)
+
+
+class ScanCropRequest(BaseModel):
+    pages: List[PageItem]
+    confirmed_bboxes: List[BboxItem]
+    output_mode: str = "type_only"
+    variant_count: int = 1
+    model: str = "sonnet"
+    grade: str = "none"
 
 
 @app.get("/api/health")
@@ -373,6 +446,52 @@ async def hwpx_batch(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/scan-detect")
+async def scan_detect(file: UploadFile = File(...)):
+    """이미지 또는 PDF → 페이지별 이미지 변환 + Gemini bbox 감지."""
+    logger.info(f"스캔 감지 시작: {file.filename}, {file.content_type}")
+    try:
+        data = await file.read()
+        content_type = file.content_type or "image/jpeg"
+        is_pdf = content_type == "application/pdf" or (file.filename or "").lower().endswith(".pdf")
+
+        if is_pdf:
+            page_images = _pdf_to_images(data)
+        else:
+            b64 = base64.b64encode(data).decode()
+            page_images = [{"image_base64": b64, "media_type": content_type}]
+
+        pages = []
+        for i, pg in enumerate(page_images):
+            raw_bboxes = detect_problem_bboxes(pg["image_base64"], pg["media_type"])
+            total_so_far = sum(len(p["bboxes"]) for p in pages)
+            bboxes = [
+                {
+                    "id": f"p{i}_b{j}",
+                    "x": bb.get("x", 0),
+                    "y": bb.get("y", 0),
+                    "w": bb.get("w", 0),
+                    "h": bb.get("h", 0),
+                    "label": f"문제 {total_so_far + j + 1}",
+                }
+                for j, bb in enumerate(raw_bboxes)
+            ]
+            pages.append({
+                "page_index": i,
+                "image_base64": pg["image_base64"],
+                "media_type": pg["media_type"],
+                "bboxes": bboxes,
+            })
+            logger.info(f"페이지 {i+1}: {len(bboxes)}개 bbox 감지")
+
+        total_bboxes = sum(len(p["bboxes"]) for p in pages)
+        logger.info(f"감지 완료: {len(pages)}페이지, 총 {total_bboxes}개 문제")
+        return {"pages": pages, "total_pages": len(pages)}
+    except Exception as e:
+        logger.error(f"스캔 감지 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/scan-process")
 async def scan_process(
     files: List[UploadFile] = File(...),
@@ -422,6 +541,136 @@ async def scan_process(
         }
     except Exception as e:
         logger.error(f"스캔 처리 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scan-crop-process")
+async def scan_crop_process(req: ScanCropRequest):
+    """확정된 bbox로 문제 하나씩 처리, SSE 스트리밍 응답."""
+
+    async def event_stream():
+        selected = [b for b in req.confirmed_bboxes if b.selected]
+        page_map = {p.page_index: p for p in req.pages}
+        all_results = []
+
+        for i, bbox in enumerate(selected):
+            problem_id = bbox.id
+            label = bbox.label or f"문제 {i + 1}"
+            logger.info(f"처리 시작: {label} ({problem_id})")
+
+            yield f"data: {json_module.dumps({'type': 'progress', 'problem_id': problem_id, 'label': label, 'status': 'processing'}, ensure_ascii=False)}\n\n"
+
+            try:
+                page = page_map.get(bbox.page_index)
+                if not page:
+                    raise ValueError(f"페이지 {bbox.page_index}를 찾을 수 없습니다.")
+
+                cropped_b64, cropped_type = await asyncio.to_thread(
+                    _crop_image,
+                    page.image_base64, page.media_type,
+                    bbox.x, bbox.y, bbox.w, bbox.h
+                )
+
+                ocr_data = await asyncio.to_thread(ocr_scan_general, cropped_b64, cropped_type)
+                result = await asyncio.wait_for(
+                    claude_service.process_scan(
+                        ocr_data, "general", req.variant_count,
+                        req.model, req.grade
+                    ),
+                    timeout=300.0
+                )
+
+                entry = {
+                    "problem_id": problem_id,
+                    "label": label,
+                    "result": result["text"],
+                    "graphs": result.get("graphs", []),
+                    "ocr_data": result.get("ocr_data", {}),
+                    "output_mode": req.output_mode,
+                    "usage": result["usage"],
+                }
+                all_results.append(entry)
+                logger.info(f"처리 완료: {label}")
+
+                yield f"data: {json_module.dumps({'type': 'result', **entry}, ensure_ascii=False)}\n\n"
+
+            except Exception as e:
+                logger.error(f"처리 에러 ({label}): {e}")
+                yield f"data: {json_module.dumps({'type': 'error', 'problem_id': problem_id, 'label': label, 'error': str(e)}, ensure_ascii=False)}\n\n"
+
+        if all_results:
+            history_service.save_history({
+                "type": "scan_crop",
+                "output_mode": req.output_mode,
+                "model": req.model,
+                "results": all_results,
+                "total": len(all_results),
+            })
+
+        yield f"data: {json_module.dumps({'type': 'done', 'total': len(selected)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+class ScanVariantRequest(BaseModel):
+    ocr_data: dict
+    scan_mode: str = "general"
+    variant_count: int = 1
+    model: str = "sonnet"
+    grade: str = "none"
+    output_mode: str = "variant"
+
+
+@app.post("/api/scan-generate-variants")
+async def scan_generate_variants(req: ScanVariantRequest):
+    """OCR 데이터를 받아 유사문항 생성."""
+    logger.info(f"스캔 유사문항 생성: mode={req.scan_mode}, variants={req.variant_count}, model={req.model}, output_mode={req.output_mode}")
+    try:
+        result = await claude_service.process_scan(
+            req.ocr_data, req.scan_mode, req.variant_count, req.model, req.grade,
+            output_mode=req.output_mode,
+        )
+        logger.info(f"스캔 유사문항 생성 완료: {result['usage']['total_tokens']} tokens")
+
+        entry_id = history_service.save_history({
+            "type": "scan_variant",
+            "mode": req.scan_mode,
+            "model": req.model,
+            "output_mode": req.output_mode,
+            "result": result["text"],
+            "usage": result["usage"],
+        })
+
+        return {
+            "result": result["text"],
+            "graphs": result.get("graphs", []),
+            "usage": result["usage"],
+            "ocr_data": result.get("ocr_data", {}),
+            "history_id": entry_id,
+        }
+    except Exception as e:
+        logger.error(f"스캔 유사문항 생성 에러: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TextToHwpxRequest(BaseModel):
+    texts: List[str]  # 각 문제별 결과 텍스트 리스트
+    filename: str = "scan_result"
+
+
+@app.post("/api/text-to-hwpx")
+async def text_to_hwpx(req: TextToHwpxRequest):
+    """여러 개의 텍스트 결과를 하나의 HWPX 파일로 변환."""
+    try:
+        combined = "\n\n".join(req.texts)
+        hwpx_bytes = create_hwpx(combined)
+        store_info = _store_hwpx(hwpx_bytes)
+        return {
+            "download_id": store_info["download_id"],
+            "filename": f"{req.filename}.hwpx",
+        }
+    except Exception as e:
+        logger.error(f"HWPX 변환 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
