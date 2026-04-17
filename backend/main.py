@@ -9,14 +9,58 @@ from pathlib import Path
 from services.claude_service import ClaudeService
 from services import history_service
 from services.hwpx_service import read_hwpx, create_hwpx, split_problems
-from services.gemini_service import analyze_graph, recognize_handwriting, ocr_scan_general, ocr_scan_student_paper
+from services.gemini_service import (
+    analyze_graph, recognize_handwriting,
+    ocr_scan_general, ocr_scan_student_paper,
+    detect_problem_bboxes,
+)
 import asyncio
+import fitz  # pymupdf
+from PIL import Image
 import time
 from fastapi.responses import Response
 import uuid
 
 # 임시 HWPX 파일 저장 (TTL 1시간)
 _hwpx_store = {}  # {id: {"data": bytes, "created_at": float}}
+
+
+def _pdf_to_images(pdf_bytes: bytes) -> list:
+    """PDF를 페이지별 PNG base64 이미지 리스트로 변환.
+    Returns: [{"image_base64": str, "media_type": "image/png"}, ...]
+    """
+    import io as _io
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pages = []
+    for page in doc:
+        pix = page.get_pixmap(dpi=150)
+        png_bytes = pix.tobytes("png")
+        b64 = base64.b64encode(png_bytes).decode()
+        pages.append({"image_base64": b64, "media_type": "image/png"})
+    doc.close()
+    return pages
+
+
+def _crop_image(image_base64: str, media_type: str, x: float, y: float, w: float, h: float) -> tuple:
+    """bbox 비율 좌표로 이미지를 크롭하여 (base64, media_type) 반환."""
+    import io as _io
+    img_bytes = base64.b64decode(image_base64)
+    img = Image.open(_io.BytesIO(img_bytes))
+    iw, ih = img.size
+    left = int(x * iw)
+    top = int(y * ih)
+    right = int((x + w) * iw)
+    bottom = int((y + h) * ih)
+    # 경계 클리핑
+    left, top = max(0, left), max(0, top)
+    right, bottom = min(iw, right), min(ih, bottom)
+    # 빈 crop 방지
+    if right <= left or bottom <= top:
+        raise ValueError(f"Invalid bbox: empty crop area ({left},{top},{right},{bottom}). Check bbox coordinates.")
+    cropped = img.crop((left, top, right, bottom))
+    buf = _io.BytesIO()
+    cropped.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode(), "image/png"
 
 
 def _cleanup_store():
@@ -371,6 +415,50 @@ async def hwpx_batch(
     except Exception as e:
         logger.error(f"HWPX 일괄 처리 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scan-detect")
+async def scan_detect(
+    file: UploadFile = File(...),
+):
+    """이미지 또는 PDF → 페이지별 이미지 변환 + Gemini bbox 감지."""
+    logger.info(f"스캔 감지 시작: {file.filename}, {file.content_type}")
+    data = await file.read()
+    content_type = file.content_type or "image/jpeg"
+
+    # PDF → 페이지 이미지 변환
+    if content_type == "application/pdf":
+        page_images = _pdf_to_images(data)
+    else:
+        b64 = base64.b64encode(data).decode()
+        page_images = [{"image_base64": b64, "media_type": content_type}]
+
+    # 각 페이지에서 bbox 감지
+    pages = []
+    for i, pg in enumerate(page_images):
+        raw_bboxes = detect_problem_bboxes(pg["image_base64"], pg["media_type"])
+        bboxes = [
+            {
+                "id": f"p{i}_b{j}",
+                "x": bb.get("x", 0),
+                "y": bb.get("y", 0),
+                "w": bb.get("w", 0),
+                "h": bb.get("h", 0),
+                "label": f"문제 {len(pages) + j + 1}",
+            }
+            for j, bb in enumerate(raw_bboxes)
+        ]
+        pages.append({
+            "page_index": i,
+            "image_base64": pg["image_base64"],
+            "media_type": pg["media_type"],
+            "bboxes": bboxes,
+        })
+        logger.info(f"페이지 {i+1}: {len(bboxes)}개 bbox 감지")
+
+    total_bboxes = sum(len(p["bboxes"]) for p in pages)
+    logger.info(f"감지 완료: {len(pages)}페이지, 총 {total_bboxes}개 문제")
+    return {"pages": pages, "total_pages": len(pages)}
 
 
 @app.post("/api/scan-process")
