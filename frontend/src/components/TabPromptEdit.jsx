@@ -36,6 +36,8 @@ export default function TabPromptEdit() {
         </p>
         <textarea
           key="prompt-feedback-textarea"
+          id="prompt-feedback-textarea"
+          aria-label="프롬프트 피드백 입력"
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           placeholder="예: 플러스마이너스는 pm이 아니라 +- 로 써야 합니다"
