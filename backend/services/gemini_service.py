@@ -350,3 +350,56 @@ def detect_problem_bboxes(image_base64: str, media_type: str) -> list:
     except json.JSONDecodeError:
         logger.warning(f"bbox 감지 JSON 파싱 실패: {text[:200]}")
         return []
+
+
+def analyze_graph_style(image_base64: str, media_type: str) -> dict:
+    """수능/교과서 그래프 이미지에서 SVG 렌더링 시각 스타일 규칙 추출.
+
+    Returns:
+        dict with keys: axis_arrow, tick_marks, origin_label, curve_style,
+                        asymptote_style, point_style, label_placement,
+                        shading_style, overall_size, svg_notes
+    """
+    prompt = """이것은 한국 수능/교과서의 수학 그래프 이미지입니다.
+이 그래프의 시각 스타일을 분석하여 SVG 코드 작성에 필요한 규칙을 JSON으로 추출하세요.
+
+반드시 아래 JSON 형식으로만 응답:
+
+{
+  "axis_arrow": "축 끝 화살표의 모양/크기/각도 (예: 작고 날카로운 채워진 삼각형, 길이 약 8px)",
+  "tick_marks": "눈금 스타일 (예: 축에 수직인 짧은 선 4px, 숫자는 축 바깥쪽 아래/왼쪽)",
+  "origin_label": "원점 O 위치와 크기 (예: 축 교차점 아래왼쪽, 로마체 12px)",
+  "curve_style": "함수 곡선 선 굵기/색상 (예: 검은 실선 stroke-width 1.5)",
+  "asymptote_style": "점근선 스타일 (없으면 none, 예: 검은 점선 stroke-dasharray 4,3)",
+  "point_style": "좌표점 원 크기와 채우기 (예: 반지름 3px 검은 채우기)",
+  "label_placement": "함수 라벨/좌표 라벨 위치 패턴 (예: 곡선 끝 오른쪽 위, 점 오른쪽 위)",
+  "shading_style": "음영 처리 방식 (없으면 none)",
+  "overall_size": "그래프 전체 비율과 여백 (예: 정사각형 비율, 여백 20px 내외)",
+  "svg_notes": "SVG 코드 작성 시 주의할 특이사항"
+}
+
+JSON만 출력하세요."""
+
+    payload = {
+        "contents": [{
+            "parts": [
+                {"inline_data": {"mime_type": media_type, "data": image_base64}},
+                {"text": prompt},
+            ]
+        }]
+    }
+
+    result = _call_gemini(GEMINI_MODEL_ANALYZE, payload)
+    text = result["candidates"][0]["content"]["parts"][0]["text"]
+
+    try:
+        json_match = text
+        if "```" in text:
+            import re
+            m = re.search(r'```(?:json)?\s*(.*?)```', text, re.DOTALL)
+            if m:
+                json_match = m.group(1)
+        return json.loads(json_match)
+    except json.JSONDecodeError:
+        logger.warning(f"analyze_graph_style JSON 파싱 실패: {text[:200]}")
+        return {"svg_notes": text}
