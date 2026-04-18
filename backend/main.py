@@ -461,9 +461,19 @@ async def scan_detect(file: UploadFile = File(...)):
             b64 = base64.b64encode(data).decode()
             page_images = [{"image_base64": b64, "media_type": content_type}]
 
+        async def _detect_one(i: int, pg: dict):
+            raw = await asyncio.to_thread(
+                detect_problem_bboxes, pg["image_base64"], pg["media_type"]
+            )
+            return i, pg, raw
+
+        detect_results = await asyncio.gather(
+            *[_detect_one(i, pg) for i, pg in enumerate(page_images)]
+        )
+        detect_results = sorted(detect_results, key=lambda x: x[0])
+
         pages = []
-        for i, pg in enumerate(page_images):
-            raw_bboxes = detect_problem_bboxes(pg["image_base64"], pg["media_type"])
+        for i, pg, raw_bboxes in detect_results:
             total_so_far = sum(len(p["bboxes"]) for p in pages)
             bboxes = [
                 {
