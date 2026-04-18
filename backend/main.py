@@ -567,45 +567,55 @@ async def scan_crop_process(req: ScanCropRequest):
 
     async def _process_one(bbox, i: int, page_map: dict):
         label = bbox.label or f"문제 {i + 1}"
-        async with _semaphore:
-            page = page_map.get(bbox.page_index)
-            if not page:
-                raise ValueError(f"페이지 {bbox.page_index}를 찾을 수 없습니다.")
+        try:
+            async with _semaphore:
+                page = page_map.get(bbox.page_index)
+                if not page:
+                    raise ValueError(f"페이지 {bbox.page_index}를 찾을 수 없습니다.")
 
-            cropped_b64, cropped_type = await asyncio.to_thread(
-                _crop_image,
-                page.image_base64, page.media_type,
-                bbox.x, bbox.y, bbox.w, bbox.h,
-            )
-
-            if req.is_student_paper:
-                ocr_data = await asyncio.to_thread(
-                    ocr_scan_student_paper, cropped_b64, cropped_type
+                cropped_b64, cropped_type = await asyncio.to_thread(
+                    _crop_image,
+                    page.image_base64, page.media_type,
+                    bbox.x, bbox.y, bbox.w, bbox.h,
                 )
-                scan_mode = "student"
-            else:
-                ocr_data = await asyncio.to_thread(
-                    ocr_scan_general, cropped_b64, cropped_type
+
+                if req.is_student_paper:
+                    ocr_data = await asyncio.to_thread(
+                        ocr_scan_student_paper, cropped_b64, cropped_type
+                    )
+                    scan_mode = "student"
+                else:
+                    ocr_data = await asyncio.to_thread(
+                        ocr_scan_general, cropped_b64, cropped_type
+                    )
+                    scan_mode = "general"
+
+                result = await asyncio.wait_for(
+                    claude_service.process_scan(
+                        ocr_data, scan_mode, req.variant_count,
+                        req.model, req.grade, req.output_mode,
+                    ),
+                    timeout=300.0,
                 )
-                scan_mode = "general"
 
-            result = await asyncio.wait_for(
-                claude_service.process_scan(
-                    ocr_data, scan_mode, req.variant_count,
-                    req.model, req.grade, req.output_mode,
-                ),
-                timeout=300.0,
-            )
-
-        return {
-            "problem_id": bbox.id,
-            "label": label,
-            "result": result["text"],
-            "graphs": result.get("graphs", []),
-            "ocr_data": result.get("ocr_data", {}),
-            "output_mode": req.output_mode,
-            "usage": result["usage"],
-        }
+            return {
+                "type": "result",
+                "problem_id": bbox.id,
+                "label": label,
+                "result": result["text"],
+                "graphs": result.get("graphs", []),
+                "ocr_data": result.get("ocr_data", {}),
+                "output_mode": req.output_mode,
+                "usage": result["usage"],
+            }
+        except Exception as e:
+            logger.error(f"처리 에러 ({label}): {e}")
+            return {
+                "type": "error",
+                "problem_id": bbox.id,
+                "label": label,
+                "error": str(e),
+            }
 
     async def event_stream():
         selected = [b for b in req.confirmed_bboxes if b.selected]
@@ -617,19 +627,16 @@ async def scan_crop_process(req: ScanCropRequest):
             yield f"data: {json_module.dumps({'type': 'progress', 'problem_id': bbox.id, 'label': label, 'status': 'processing'}, ensure_ascii=False)}\n\n"
 
         tasks = [
-            asyncio.ensure_future(_process_one(bbox, i, page_map))
+            asyncio.create_task(_process_one(bbox, i, page_map))
             for i, bbox in enumerate(selected)
         ]
 
         for future in asyncio.as_completed(tasks):
-            try:
-                entry = await future
+            entry = await future
+            if entry["type"] == "result":
                 all_results.append(entry)
                 logger.info(f"처리 완료: {entry['label']}")
-                yield f"data: {json_module.dumps({'type': 'result', **entry}, ensure_ascii=False)}\n\n"
-            except Exception as e:
-                logger.error(f"처리 에러: {e}")
-                yield f"data: {json_module.dumps({'type': 'error', 'error': str(e)}, ensure_ascii=False)}\n\n"
+            yield f"data: {json_module.dumps(entry, ensure_ascii=False)}\n\n"
 
         if all_results:
             history_service.save_history({
