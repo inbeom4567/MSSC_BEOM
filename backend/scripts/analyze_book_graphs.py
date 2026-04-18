@@ -76,7 +76,11 @@ def main(year_filter: str = None):
       python scripts/analyze_book_graphs.py 2025년    # 2025년만
     """
     if year_filter:
-        hwpx_files = sorted((BOOK_DIR / year_filter).rglob("*.hwpx"))
+        year_path = BOOK_DIR / year_filter
+        if not year_path.exists():
+            logger.error(f"디렉토리 없음: {year_path}")
+            sys.exit(1)
+        hwpx_files = sorted(year_path.rglob("*.hwpx"))
     else:
         hwpx_files = sorted(BOOK_DIR.rglob("*.hwpx"))
 
