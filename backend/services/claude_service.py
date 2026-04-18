@@ -486,7 +486,16 @@ class ClaudeService:
                     f"-유사정답{i}-\n(유사문항 {i} 정답)\n\n"
                 )
 
-        system_prompt = self.solve_prompt + grade_prompt
+        if output_mode in ("type_only", "type_with_solution"):
+            mode_guard = (
+                "⚠️ 현재 작업 모드: HWP 변환 전용\n"
+                "- 유사문항 생성 절대 금지\n"
+                "- 아래 사용자 메시지의 출력 형식 태그만 사용할 것\n"
+                "- 지정된 태그 외 추가 내용 절대 출력 금지\n\n"
+            )
+            system_prompt = mode_guard + self.solve_prompt + grade_prompt
+        else:
+            system_prompt = self.solve_prompt + grade_prompt
 
         message = await self.client.messages.create(
             model=model_id,

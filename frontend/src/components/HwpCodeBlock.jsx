@@ -79,7 +79,16 @@ export function hwpToLatex(hwp) {
   s = s.replace(/`([^`\s]+)`/g, '$1')
   s = s.replace(/`/g, '')  // 나머지 백틱(작은 공백) 제거
 
-  // HWP 괄호 → LaTeX
+  // 이미 백슬래시가 붙은 \left{ \right} 를 먼저 정규화 (KaTeX는 \left\{ 필요)
+  s = s.replace(/\\left\s*\{/g, '\\left\\{')
+  s = s.replace(/\\right\s*\}/g, '\\right\\}')
+  // \left( \left[ 는 이미 올바른 KaTeX이므로 그대로 통과 (아래 변환과 중복 방지)
+  s = s.replace(/\\left\s*\(/g, '\\left(')
+  s = s.replace(/\\right\s*\)/g, '\\right)')
+  s = s.replace(/\\left\s*\[/g, '\\left[')
+  s = s.replace(/\\right\s*\]/g, '\\right]')
+
+  // HWP 괄호(백슬래시 없음) → LaTeX
   s = s.replace(/\bleft\s*\(/g, '\\left(')
   s = s.replace(/\bright\s*\)/g, '\\right)')
   s = s.replace(/\bleft\s*\[/g, '\\left[')
