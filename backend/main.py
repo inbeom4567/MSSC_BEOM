@@ -133,6 +133,7 @@ class ScanCropRequest(BaseModel):
     variant_count: int = 1
     model: str = "sonnet"
     grade: str = "none"
+    is_student_paper: bool = False
 
 
 @app.get("/api/health")
