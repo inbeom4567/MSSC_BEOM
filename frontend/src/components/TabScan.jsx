@@ -18,6 +18,7 @@ export default function TabScan({ grade, model, onStatusChange }) {
   const [confirmedBboxes, setConfirmedBboxes] = useState([])
   const [outputMode, setOutputMode] = useState('type_only')
   const [variantCount, setVariantCount] = useState(1)
+  const [isStudentPaper, setIsStudentPaper] = useState(false)
   const [cards, setCards] = useState([])
   const [error, setError] = useState(null)
   const [hwpxUrl, setHwpxUrl] = useState(null)
@@ -104,6 +105,7 @@ export default function TabScan({ grade, model, onStatusChange }) {
           variant_count: variantCount,
           model,
           grade,
+          is_student_paper: isStudentPaper,
         }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail || '처리 실패') }
@@ -258,6 +260,17 @@ export default function TabScan({ grade, model, onStatusChange }) {
               </div>
             </div>
           )}
+
+          <div>
+            <p className="text-xs font-semibold text-gray-500 dark:text-[#5A5E70] uppercase tracking-wide mb-2">스캔 유형</p>
+            <button
+              onClick={() => setIsStudentPaper(v => !v)}
+              className={`px-4 py-3 rounded-xl text-sm border transition-colors ${isStudentPaper ? 'border-sky-500 dark:border-violet-500 bg-sky-50 dark:bg-violet-500/10 text-sky-700 dark:text-violet-300 font-semibold' : 'border-gray-200 dark:border-[#353844] text-gray-600 dark:text-[#5A5E70] hover:bg-gray-50 dark:hover:bg-[#2A2D38]'}`}
+            >
+              <div className="font-semibold">학생 시험지 모드</div>
+              <div className="text-xs opacity-70 mt-0.5">손필기 제외, 인쇄 문제만 처리</div>
+            </button>
+          </div>
 
           <button onClick={handleProcess}
             className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-sky-500 to-blue-600 dark:from-violet-600 dark:to-purple-700 shadow-md hover:opacity-90 transition-all">
