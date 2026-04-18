@@ -1,6 +1,7 @@
 """book/ 폴더의 HWPX 기출 파일에서 그래프 이미지를 추출하고
 Gemini로 수능 SVG 스타일 규칙을 분석하여 graph_style_report.json에 저장."""
 
+import io
 import sys
 import json
 import base64
@@ -19,17 +20,30 @@ logger = logging.getLogger(__name__)
 BOOK_DIR = Path(__file__).parent.parent.parent / "book"
 OUTPUT_FILE = Path(__file__).parent.parent / "data" / "graph_style_report.json"
 
+# Gemini는 BMP 미지원 → JPEG로 변환. PNG/JPG만 직접 전송.
 IMAGE_EXTENSIONS = {".bmp", ".jpg", ".jpeg", ".png"}
-MEDIA_TYPES = {
-    ".bmp": "image/bmp",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-}
+
+
+def _to_jpeg_base64(data: bytes, ext: str) -> tuple[str, str]:
+    """이미지 bytes를 Gemini 호환 JPEG base64로 변환. BMP는 PIL로 변환."""
+    if ext in (".jpg", ".jpeg"):
+        return base64.b64encode(data).decode(), "image/jpeg"
+    if ext == ".png":
+        return base64.b64encode(data).decode(), "image/png"
+    # BMP → JPEG 변환 (PIL 사용)
+    try:
+        from PIL import Image
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=90)
+        return base64.b64encode(buf.getvalue()).decode(), "image/jpeg"
+    except Exception:
+        # PIL 없으면 원본 그대로 (에러 허용)
+        return base64.b64encode(data).decode(), "image/bmp"
 
 
 def extract_images_from_hwpx(hwpx_path: Path) -> list:
-    """HWPX ZIP에서 BinData/ 이미지 파일을 base64로 추출."""
+    """HWPX ZIP에서 BinData/ 이미지 파일을 base64로 추출. BMP는 JPEG 변환."""
     images = []
     try:
         with zipfile.ZipFile(hwpx_path) as z:
@@ -40,10 +54,11 @@ def extract_images_from_hwpx(hwpx_path: Path) -> list:
                 if ext not in IMAGE_EXTENSIONS:
                     continue
                 data = z.read(name)
+                b64, media_type = _to_jpeg_base64(data, ext)
                 images.append({
                     "name": name,
-                    "base64": base64.b64encode(data).decode(),
-                    "media_type": MEDIA_TYPES.get(ext, "image/jpeg"),
+                    "base64": b64,
+                    "media_type": media_type,
                 })
     except Exception as e:
         logger.warning(f"  [경고] {hwpx_path.name} 열기 실패: {e}")
