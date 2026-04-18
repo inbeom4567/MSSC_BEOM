@@ -402,4 +402,15 @@ JSON만 출력하세요."""
         return json.loads(json_match)
     except json.JSONDecodeError:
         logger.warning(f"analyze_graph_style JSON 파싱 실패: {text[:200]}")
-        return {"svg_notes": text}
+        return {
+            "axis_arrow": "",
+            "tick_marks": "",
+            "origin_label": "",
+            "curve_style": "",
+            "asymptote_style": "none",
+            "point_style": "",
+            "label_placement": "",
+            "shading_style": "none",
+            "overall_size": "",
+            "svg_notes": text,
+        }
