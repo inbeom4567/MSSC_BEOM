@@ -166,9 +166,11 @@ async def hwpx_convert(file: UploadFile = File(...)):
         dst = src.with_suffix('.hwpx')
         hwp = win32com.client.Dispatch("HWPFrame.HwpObject")
         hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
-        hwp.Open(str(src), "HWP", "forceopen:true")
-        hwp.SaveAs(str(dst), "HWPX")
-        hwp.Quit()
+        try:
+            hwp.Open(str(src), "HWP", "forceopen:true")
+            hwp.SaveAs(str(dst), "HWPX")
+        finally:
+            hwp.Quit()
         if not dst.exists():
             raise HTTPException(status_code=500, detail="HWP → HWPX 변환 실패")
         hwpx_bytes = dst.read_bytes()
