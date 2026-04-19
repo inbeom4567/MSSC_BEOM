@@ -29,7 +29,9 @@ def _load_box_templates() -> dict:
     try:
         with open(path, encoding='utf-8') as f:
             _BOX_TEMPLATES = _json.load(f)
-    except Exception:
+    except Exception as e:
+        import sys
+        print(f"[경고] box_templates.json 로드 실패: {e}", file=sys.stderr)
         _BOX_TEMPLATES = {}
     return _BOX_TEMPLATES
 
@@ -489,13 +491,16 @@ _VERSION_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <ha:HWPDocumentVersion xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app"
     major="1" minor="5" micro="0" buildNumber="1"/>'''
 
-_BOX_MARKER_RE = re.compile(r'===(조건박스|보기박스[123])===')
+_BOX_MARKER_RE = re.compile(r'===(조건박스|보기박스[123]|조건박스끝|보기박스끝)===')
 
 def _substitute_box_markers(text: str) -> str:
-    """텍스트의 ===조건박스=== 등 마커를 sentinel 문자열로 교체."""
+    """텍스트의 ===조건박스=== 등 마커를 sentinel 문자열로 교체.
+    닫기 마커(끝)는 빈 문자열로 제거."""
     templates = _load_box_templates()
     def replace(m):
         key = m.group(1)
+        if key.endswith('끝'):
+            return ''  # 닫기 마커는 제거
         if key in templates and templates[key]:
             return f'\x00BOX:{key}\x00'
         return ''

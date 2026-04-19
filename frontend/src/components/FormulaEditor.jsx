@@ -104,12 +104,12 @@ const PALETTE = {
 }
 
 const BOX_INSERTS = [
-  { label: '조건박스', text: '\n===조건박스===\n\n===조건박스끝===\n' },
-  { label: '보기박스(2단)', text: '\n===보기박스1===\n\n===보기박스끝===\n' },
-  { label: '보기박스(1단)', text: '\n===보기박스2===\n\n===보기박스끝===\n' },
-  { label: '보기박스(좁은)', text: '\n===보기박스3===\n\n===보기박스끝===\n' },
-  { label: '선지(짧은)', text: '\n① \t② \t③ \n④ \t⑤ \n' },
-  { label: '선지(긴)', text: '\n① \n② \n③ \n④ \n⑤ \n' },
+  { label: '조건박스', text: '\n===조건박스===\n\n===조건박스끝===\n', cursorOffset: 12 },
+  { label: '보기박스(2단)', text: '\n===보기박스1===\n\n===보기박스끝===\n', cursorOffset: 13 },
+  { label: '보기박스(1단)', text: '\n===보기박스2===\n\n===보기박스끝===\n', cursorOffset: 13 },
+  { label: '보기박스(좁은)', text: '\n===보기박스3===\n\n===보기박스끝===\n', cursorOffset: 13 },
+  { label: '선지(짧은)', text: '\n① \t② \t③ \n④ \t⑤ \n', cursorOffset: 0 },
+  { label: '선지(긴)', text: '\n① \n② \n③ \n④ \n⑤ \n', cursorOffset: 0 },
 ]
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────
@@ -173,7 +173,7 @@ export default function FormulaEditor({ value, onChange, onSave, onCancel }) {
         <span className="text-xs text-gray-400 dark:text-[#5A5E70] mr-1">구조:</span>
         {BOX_INSERTS.map((btn, i) => (
           <button key={i}
-            onClick={() => insertAtCursor(btn.text, 0)}
+            onClick={() => insertAtCursor(btn.text, btn.cursorOffset ?? 0)}
             className="px-2.5 py-1 rounded border border-dashed border-gray-300 dark:border-[#454854] text-gray-500 dark:text-[#6A6E80] text-xs hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400">
             {btn.label}
           </button>
