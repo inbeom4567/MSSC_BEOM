@@ -35,7 +35,15 @@ export default function ProblemReviewer({ pages, bboxes, onConfirm, onBack }) {
     }
     generate()
     return () => { cancelled = true }
-  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bboxes, pages])
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
 
   const current = items[currentIdx]
   const included = current ? inclusions[current.id] : false
@@ -55,7 +63,7 @@ export default function ProblemReviewer({ pages, bboxes, onConfirm, onBack }) {
     onConfirm(selected)
   }
 
-  const isDark = document.documentElement.classList.contains('dark')
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
   const colors = isDark
     ? { bg: '#22252E', card: '#2A2D38', border: '#353844', text: '#E2E4F0', muted: '#5A5E70', accent: '#8B5CF6' }
     : { bg: '#F4F5F7', card: '#FFFFFF', border: '#DDE1E9', text: '#374151', muted: '#9AA0B0', accent: '#0EA5E9' }
@@ -222,11 +230,18 @@ function cropToDataUrl(base64, mediaType, x, y, w, h) {
     img.onload = () => {
       const sw = img.naturalWidth
       const sh = img.naturalHeight
+      // Clamp bbox to [0, 1] range
+      const x0 = Math.max(0, Math.min(1, x))
+      const y0 = Math.max(0, Math.min(1, y))
+      const x1 = Math.max(0, Math.min(1, x + w))
+      const y1 = Math.max(0, Math.min(1, y + h))
+      const cw = Math.max(0.001, x1 - x0)
+      const ch = Math.max(0.001, y1 - y0)
       const canvas = document.createElement('canvas')
-      canvas.width = Math.max(1, Math.round(sw * w))
-      canvas.height = Math.max(1, Math.round(sh * h))
+      canvas.width = Math.max(1, Math.round(sw * cw))
+      canvas.height = Math.max(1, Math.round(sh * ch))
       const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, Math.round(sw * x), Math.round(sh * y), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height)
+      ctx.drawImage(img, Math.round(sw * x0), Math.round(sh * y0), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height)
       resolve(canvas.toDataURL('image/jpeg', 0.92))
     }
     img.onerror = reject
