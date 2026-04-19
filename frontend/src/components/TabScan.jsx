@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect } from 'react'
 import CropEditor from './CropEditor'
 import ScanResultCard from './ScanResultCard'
+import ProblemReviewer from './ProblemReviewer'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
 
 export default function TabScan({ grade, model, onStatusChange }) {
-  const [step, setStep] = useState('upload')  // upload | detecting | editing | selecting | processing | done
+  const [step, setStep] = useState('upload')  // upload | detecting | editing | reviewing | processing | done
   const [file, setFile] = useState(null)
   const [dragging, setDragging] = useState(false)
   const [detectData, setDetectData] = useState(null)
@@ -73,8 +74,12 @@ export default function TabScan({ grade, model, onStatusChange }) {
 
   const handleConfirm = (bboxes) => {
     setConfirmedBboxes(bboxes)
-    handleProcess(bboxes)
+    setStep('reviewing')
   }
+
+  const handleResultChange = useCallback((problemId, newResult) => {
+    setCards(prev => prev.map(c => c.problemId === problemId ? { ...c, result: newResult } : c))
+  }, [])
 
   const handleProcess = async (bboxes) => {
     const resolved = bboxes || confirmedBboxes
@@ -222,6 +227,20 @@ export default function TabScan({ grade, model, onStatusChange }) {
         </>
       )}
 
+      {/* ── 3단계: 문제 검토 ── */}
+      {step === 'reviewing' && detectData && confirmedBboxes.length > 0 && (
+        <>
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="text-base font-semibold text-gray-700 dark:text-[#E2E4F0]">문제 검토</h2>
+          </div>
+          <ProblemReviewer
+            pages={detectData.pages}
+            bboxes={confirmedBboxes}
+            onConfirm={(selected) => handleProcess(selected)}
+            onBack={() => setStep('editing')}
+          />
+        </>
+      )}
 
       {/* 에러 */}
       {error && (
@@ -249,7 +268,7 @@ export default function TabScan({ grade, model, onStatusChange }) {
             )}
           </div>
           {cards.map(card => (
-            <ScanResultCard key={card.problemId} {...card} model={model} grade={grade} />
+            <ScanResultCard key={card.problemId} {...card} model={model} grade={grade} onResultChange={handleResultChange} />
           ))}
         </div>
       )}
