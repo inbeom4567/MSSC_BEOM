@@ -1,11 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import SolutionDisplay from './SolutionDisplay'
+import FormulaEditor from './FormulaEditor'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
-export default function ScanResultCard({ problemId, label, status, result, graphs, ocrData, outputMode, error, model, grade }) {
+export default function ScanResultCard({ problemId, label, status, result, graphs, ocrData, outputMode, error, model, grade, onResultChange }) {
   const [open, setOpen] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [draftResult, setDraftResult] = useState(result || '')
   const [extraMode, setExtraMode] = useState(null)
+
+  useEffect(() => {
+    setDraftResult(result || '')
+  }, [result])
   const [extraResult, setExtraResult] = useState(null)
   const [extraGraphs, setExtraGraphs] = useState([])
   const [extraLoading, setExtraLoading] = useState(false)
@@ -64,6 +71,13 @@ export default function ScanResultCard({ problemId, label, status, result, graph
             </svg>
           )}
         </span>
+        {status === 'done' && result && (
+          <button
+            onClick={e => { e.stopPropagation(); setEditing(prev => !prev) }}
+            className="text-xs px-3 py-1 rounded-lg border border-gray-200 dark:border-[#353844] text-gray-600 dark:text-[#A0A4B8] hover:bg-gray-100 dark:hover:bg-[#353844]">
+            {editing ? '✕ 닫기' : '✎ 수정'}
+          </button>
+        )}
         {status === 'done' && outputMode === 'type_only' && !extraResult && (
           <div className="ml-auto flex gap-2">
             <button
@@ -91,9 +105,24 @@ export default function ScanResultCard({ problemId, label, status, result, graph
       </div>
 
       {/* 본문 */}
-      {open && status === 'done' && result && (
+      {open && status === 'done' && (
         <div className="p-4 bg-white dark:bg-[#22252E]">
-          <SolutionDisplay solution={result} graphs={graphs} title={label} />
+          {editing ? (
+            <FormulaEditor
+              value={draftResult}
+              onChange={setDraftResult}
+              onSave={() => {
+                onResultChange?.(problemId, draftResult)
+                setEditing(false)
+              }}
+              onCancel={() => {
+                setDraftResult(result || '')
+                setEditing(false)
+              }}
+            />
+          ) : (
+            result && <SolutionDisplay solution={result} graphs={graphs} title={label} />
+          )}
           {extraError && (
             <div className="mt-3 p-2 text-xs text-red-500 bg-red-50 dark:bg-red-500/10 rounded-lg">{extraError}</div>
           )}
