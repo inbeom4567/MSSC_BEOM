@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import TabCreateVariant from './components/TabCreateVariant'
 import TabSolveVariant from './components/TabSolveVariant'
-import TabHwpx from './components/TabHwpx'
 import TabHistory from './components/TabHistory'
 import TabPromptEdit from './components/TabPromptEdit'
 import TabScan from './components/TabScan'
@@ -12,7 +11,6 @@ const FEATURES = [
   { id: 'create', label: '유사문항 생성', desc: '이미지 → 유사문항', icon: '✦', color: 'bg-indigo-500' },
   { id: 'solve', label: '변형문항 해설', desc: '이미지 → 해설', icon: '✎', color: 'bg-violet-500' },
   { id: 'scan', label: '스캔 처리', desc: '스캔 → HWP + 유사문항', icon: '⊡', color: 'bg-sky-500' },
-  { id: 'hwpx', label: '한글 파일', desc: '.hwpx → 유사문항/해설', icon: '⬡', color: 'bg-orange-500' },
   { id: 'history', label: '히스토리', desc: '저장 · 비교', icon: '≋', color: 'bg-slate-500' },
   { id: 'prompt', label: '프롬프트 설정', desc: '피드백 반영', icon: '⚙', color: 'bg-slate-500' },
   { id: 'guide', label: '사용설명서', desc: '단계별 사용법', icon: '?', color: 'bg-teal-500' },
@@ -173,7 +171,6 @@ function App() {
 
           {activeFeature === 'create' && <TabCreateVariant {...commonProps} />}
           {activeFeature === 'solve' && <TabSolveVariant {...commonProps} />}
-          {activeFeature === 'hwpx' && <TabHwpx {...commonProps} />}
           {activeFeature === 'history' && <TabHistory />}
           {activeFeature === 'prompt' && <TabPromptEdit />}
           {activeFeature === 'guide' && <TabGuide />}
