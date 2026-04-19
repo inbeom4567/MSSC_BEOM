@@ -22,6 +22,7 @@ import time
 from fastapi.responses import Response, StreamingResponse
 import json as json_module
 import uuid
+import shutil
 
 # 임시 HWPX 파일 저장 (TTL 1시간)
 _hwpx_store = {}  # {id: {"data": bytes, "created_at": float}}
@@ -85,6 +86,14 @@ logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
+# HWP 변환기 가용성 사전 확인 (서버 시작 시 1회)
+_hwp_converter_available = False
+try:
+    import win32com.client  # noqa: F401
+    _hwp_converter_available = True
+except ImportError:
+    pass
+
 app = FastAPI(title="수학 유사문항 생성기")
 
 app.add_middleware(
@@ -134,6 +143,45 @@ class ScanCropRequest(BaseModel):
     model: str = "sonnet"
     grade: str = "none"
     is_student_paper: bool = False
+
+
+@app.get("/api/system-info")
+async def system_info():
+    return {"hwp_converter_available": _hwp_converter_available}
+
+
+@app.post("/api/hwpx-convert")
+async def hwpx_convert(file: UploadFile = File(...)):
+    if not _hwp_converter_available:
+        raise HTTPException(status_code=400, detail="HWP 변환기를 사용할 수 없습니다. 한글 프로그램이 설치된 Windows 환경에서만 지원됩니다.")
+    import tempfile, win32com.client
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ('.hwp',):
+        raise HTTPException(status_code=400, detail="HWP 파일만 변환 가능합니다.")
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        src = Path(tmp_dir) / file.filename
+        with open(src, 'wb') as f:
+            shutil.copyfileobj(file.file, f)
+        dst = src.with_suffix('.hwpx')
+        hwp = win32com.client.Dispatch("HWPFrame.HwpObject")
+        hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+        hwp.Open(str(src), "HWP", "forceopen:true")
+        hwp.SaveAs(str(dst), "HWPX")
+        hwp.Quit()
+        if not dst.exists():
+            raise HTTPException(status_code=500, detail="HWP → HWPX 변환 실패")
+        hwpx_bytes = dst.read_bytes()
+        filename = dst.name
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    from fastapi.responses import Response
+    return Response(
+        content=hwpx_bytes,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/api/health")
