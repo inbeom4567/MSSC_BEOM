@@ -83,9 +83,43 @@ def _aggregate_styles(results: list) -> dict:
     return aggregated
 
 
+def _load_existing(year_filter: str | None) -> tuple[list, set]:
+    """기존 결과 로드. 이미 처리된 파일 경로 집합 반환."""
+    if not OUTPUT_FILE.exists():
+        return [], set()
+    try:
+        with open(OUTPUT_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        existing = data.get("styles", [])
+        # year_filter가 다른 경우 해당 연도 결과만 제외하고 유지
+        done_files = {r["file"] for r in existing}
+        return existing, done_files
+    except Exception:
+        return [], set()
+
+
+def _save(results: list, hwpx_files: list, total_images: int,
+          graph_images: int, errors: int, year_filter: str | None) -> None:
+    aggregated = _aggregate_styles(results)
+    report = {
+        "analyzed_at": datetime.now().isoformat(),
+        "year_filter": year_filter or "전체",
+        "total_hwpx_files": len(hwpx_files),
+        "total_images": total_images,
+        "graph_images": graph_images,
+        "errors": errors,
+        "styles": results,
+        "aggregated": aggregated,
+    }
+    OUTPUT_FILE.parent.mkdir(exist_ok=True)
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+
+
 def main(year_filter: str = None):
     """
     year_filter: "2025년" 처럼 특정 연도만 처리. None이면 전체.
+    이미 처리된 파일은 건너뜀 (중단 후 재실행 가능).
     사용법:
       python scripts/analyze_book_graphs.py           # 전체
       python scripts/analyze_book_graphs.py 2025년    # 2025년만
@@ -100,16 +134,22 @@ def main(year_filter: str = None):
         hwpx_files = sorted(BOOK_DIR.rglob("*.hwpx"))
 
     logger.info(f"HWPX 파일 {len(hwpx_files)}개 처리 시작")
-    if year_filter:
-        logger.info(f"  필터: {year_filter}")
 
-    results = []
+    existing_results, done_files = _load_existing(year_filter)
+    results = list(existing_results)
     total_images = 0
-    graph_images = 0
+    graph_images = len([r for r in results])
     errors = 0
 
+    skipped = 0
     for hwpx_path in hwpx_files:
-        logger.info(f"\n[{hwpx_path.relative_to(BOOK_DIR)}]")
+        rel = str(hwpx_path.relative_to(BOOK_DIR))
+        if rel in done_files:
+            skipped += 1
+            logger.info(f"\n[건너뜀] {rel}")
+            continue
+
+        logger.info(f"\n[{rel}]")
         images = extract_images_from_hwpx(hwpx_path)
         logger.info(f"  이미지 {len(images)}개 추출")
         total_images += len(images)
@@ -124,7 +164,7 @@ def main(year_filter: str = None):
 
                 style = analyze_graph_style(img["base64"], img["media_type"])
                 results.append({
-                    "file": str(hwpx_path.relative_to(BOOK_DIR)),
+                    "file": rel,
                     "image": img["name"],
                     "graph_type": analysis.get("graph_type", "unknown"),
                     "description": analysis.get("description", ""),
@@ -134,25 +174,12 @@ def main(year_filter: str = None):
                 errors += 1
                 logger.warning(f"  [에러] {img['name']}: {e}")
 
-    aggregated = _aggregate_styles(results)
-
-    report = {
-        "analyzed_at": datetime.now().isoformat(),
-        "year_filter": year_filter or "전체",
-        "total_hwpx_files": len(hwpx_files),
-        "total_images": total_images,
-        "graph_images": graph_images,
-        "errors": errors,
-        "styles": results,
-        "aggregated": aggregated,
-    }
-
-    OUTPUT_FILE.parent.mkdir(exist_ok=True)
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(report, f, ensure_ascii=False, indent=2)
+        # 파일 하나 완료될 때마다 저장
+        _save(results, hwpx_files, total_images, graph_images, errors, year_filter)
+        logger.info(f"  → 저장 완료 ({len(results)}개 그래프 누적)")
 
     logger.info(f"\n{'='*50}")
-    logger.info(f"완료: HWPX {len(hwpx_files)}개 / 이미지 {total_images}개 / 그래프 {graph_images}개 / 에러 {errors}개")
+    logger.info(f"완료: HWPX {len(hwpx_files)}개 (건너뜀 {skipped}개) / 이미지 {total_images}개 / 그래프 {graph_images}개 / 에러 {errors}개")
     logger.info(f"결과 저장: {OUTPUT_FILE}")
 
 

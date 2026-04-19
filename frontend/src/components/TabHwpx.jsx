@@ -197,9 +197,9 @@ export default function TabHwpx({ grade, model, guidelines }) {
               <input type="checkbox" checked={selectedNumbers.has(p.number)} onChange={() => toggleNumber(p.number)} className="mt-1 w-4 h-4 accent-indigo-500" />
               <div className="min-w-0">
                 <span className="text-sm font-medium text-gray-700 dark:text-[#d0d0d5]">{p.number}번</span>
-                <div className="text-xs text-gray-500 dark:text-[#8a8f98] mt-0.5 overflow-hidden">
-                  <LatexRenderer text={hwpToLatex(p.preview)} />
-                </div>
+                <p className="text-xs text-gray-500 dark:text-[#8a8f98] mt-0.5 line-clamp-2 leading-relaxed">
+                  {p.preview}
+                </p>
               </div>
             </label>
           ))}

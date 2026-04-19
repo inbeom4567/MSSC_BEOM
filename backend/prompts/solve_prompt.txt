@@ -851,14 +851,17 @@ x범위: -1, 6
 </svg>
 -그래프끝-
 
-### 수능/교과서 스타일 SVG 규칙
-1. 좌표축: 검은 실선(stroke="black" stroke-width="1.5"), 화살표 끝 처리
-2. 함수 곡선: 검은 실선(stroke-width="1.5"), fill="none"
-3. 점근선: 검은 점선(stroke-dasharray="4,3")
-4. 포인트: 검은 원(r="3", fill="black")
-5. 축 라벨 x, y: 이탤릭체(font-style="italic")
-6. 원점 O: 로마체
-7. 눈금선 없음, 배경 흰색
+### 수능/교과서 스타일 SVG 규칙 (858개 그래프 실측 기반)
+1. 좌표축: 검은 실선(stroke="black" stroke-width="1.5"), 축 끝에 작고 날카로운 채워진 삼각형 화살표(길이 8-10px, 폭 5-6px, fill="black")
+2. 눈금: 축 위에 눈금선 없음 — 숫자 라벨만 축 바깥쪽에 표시(font-size="12" font-family="serif")
+3. 원점 O: 축 교차점 왼쪽 아래에 로마체(font-family="serif" font-size="12-14")
+4. 함수 곡선: 검은 실선(stroke="black" stroke-width="1.5-2"), fill="none"; 보조/참고선은 회색 실선(stroke="#888" stroke-width="1")
+5. 점근선: 회색 점선(stroke="#888" stroke-dasharray="4,3"); 점근선이 없을 때는 생략
+6. 포인트: 채워진 점 r="3" fill="black"; 열린 점(경계 미포함)은 r="3" fill="white" stroke="black" stroke-width="1.5"
+7. 함수 라벨: 곡선 오른쪽 상단 끝 근처(font-style="italic" font-family="serif" font-size="13"); 축 라벨 x,y는 화살표 끝 바깥(font-style="italic")
+8. 음영: 대부분 없음; 필요시 연한 회색(fill="#eee" 또는 fill="rgba(0,0,0,0.08)" opacity="0.5")
+9. 전체 크기: 가로:세로 ≈ 1.2-1.5:1 비율, 사방 여백 20-30px; 배경 흰색
+10. 변수 표기: 수식 변수는 serif+italic, 원점 O·숫자·좌표는 로마체
 
 ### 이차함수 그래프 예시 (y = x² - 4x + 3)
 -그래프-

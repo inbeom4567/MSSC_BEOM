@@ -45,6 +45,16 @@ function convertCasesBlocks(s) {
 export function hwpToLatex(hwp) {
   let s = (hwp || '').trim()
 
+  // 모델이 LaTeX 형식으로 출력한 경우 (\sin, \frac 등 백슬래시 명령어 포함)
+  // hwpToLatex의 키워드 변환이 \sin → \\sin으로 이중 변환되는 문제 방지
+  if (/\\[a-zA-Z]/.test(s)) {
+    // \\command → \command (이중 백슬래시 정규화)
+    s = s.replace(/\\\\([a-zA-Z,;!|])/g, '\\$1')
+    // \frac → \dfrac (인라인에서도 분수 크기 확보)
+    s = s.replace(/\\frac\b/g, '\\dfrac')
+    return s
+  }
+
   // HWP matrix{rows}{cols} { cell }... → \begin{cases} (조각함수 fallback)
   // \left\{? matrix{n}{m} cells \right.? 패턴 처리
   s = s.replace(/\\left\s*\\\{?\s*matrix\s*\{(\d+)\}\s*\{(\d+)\}([\s\S]*?)\\right\s*\./g, (_, rows, cols, body) => {
@@ -117,7 +127,7 @@ export function hwpToLatex(hwp) {
 
   // 함수/기호
   s = s.replace(/\bsqrt\b/g, '\\sqrt')
-  s = s.replace(/\bfrac\b/g, '\\frac')
+  s = s.replace(/\bfrac\b/g, '\\dfrac')
   s = s.replace(/\bsum\b/g, '\\sum')
   s = s.replace(/\bprod\b/g, '\\prod')
   s = s.replace(/\bint\b/g, '\\int')
