@@ -10,11 +10,28 @@ import zipfile
 import io
 import re
 import logging
+import html
 from pathlib import Path
+import json as _json
+import os as _os
 
 logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data"
+
+_BOX_TEMPLATES: dict = {}
+
+def _load_box_templates() -> dict:
+    global _BOX_TEMPLATES
+    if _BOX_TEMPLATES:
+        return _BOX_TEMPLATES
+    path = _os.path.join(_os.path.dirname(__file__), '..', 'data', 'box_templates.json')
+    try:
+        with open(path, encoding='utf-8') as f:
+            _BOX_TEMPLATES = _json.load(f)
+    except Exception:
+        _BOX_TEMPLATES = {}
+    return _BOX_TEMPLATES
 
 
 def read_hwpx(file_bytes: bytes) -> str:
@@ -38,11 +55,11 @@ def _extract_text_and_formulas(xml_fragment: str) -> str:
     parts = []
     for match in re.finditer(r'<hp:t>(.*?)</hp:t>|<hp:script>(.*?)</hp:script>', xml_fragment):
         if match.group(1) is not None:
-            t = match.group(1).strip()
+            t = html.unescape(match.group(1).strip())
             if t and not t.startswith('<'):
                 parts.append(t)
         elif match.group(2) is not None:
-            s = match.group(2).strip()
+            s = html.unescape(match.group(2).strip())
             if s:
                 parts.append(f'[{s}]')
     return ''.join(parts)
@@ -93,17 +110,17 @@ def _parse_section(xml_content: str) -> str:
     # 미주 있음: 번호별로 문제+해설 구조 생성
     result = []
     problem_count = len(endnote_map)
+    sorted_endnotes = sorted(endnote_at_line.items())
 
-    for line_idx, en_num in sorted(endnote_at_line.items()):
+    for i, (line_idx, en_num) in enumerate(sorted_endnotes):
         if problem_count > 1:
             result.append(f'\n-{en_num}번-')
         result.append('-문제-')
 
-        # 이 미주가 달린 줄부터 다음 미주 줄 전까지가 문제 텍스트
-        next_endnote_lines = [li for li in endnote_at_line if li > line_idx]
-        end_line = min(next_endnote_lines) if next_endnote_lines else len(body_lines)
-
-        problem_lines = [body_lines[i] for i in range(line_idx, end_line) if body_lines[i].strip()]
+        # 문제 텍스트: 이전 미주 마커 다음 줄부터 현재 미주 마커 줄까지
+        # (미주 마커는 문제 마지막 줄에 붙어있음)
+        prev_line = sorted_endnotes[i - 1][0] + 1 if i > 0 else 0
+        problem_lines = [body_lines[j] for j in range(prev_line, line_idx + 1) if body_lines[j].strip()]
         result.append('\n'.join(problem_lines))
 
         result.append('\n-해설-')
@@ -195,6 +212,9 @@ def _build_section_xml(text: str, original_section: str = None) -> str:
         ns_match = re.search(r'(<hs:sec[^>]+>)', original_section)
         if ns_match:
             ns_tag = ns_match.group(1)
+
+    # 박스 마커를 sentinel로 교체
+    text = _substitute_box_markers(text)
 
     # 텍스트를 문제+해설 블록으로 분리
     blocks = _parse_problem_blocks(text)
@@ -362,6 +382,14 @@ def _make_equation_xml(script: str, eq_id: int) -> str:
 
 def _line_to_runs(line: str, eq_counter: list) -> str:
     """한 줄 텍스트를 hp:run + hp:equation XML로 변환."""
+    templates = _load_box_templates()
+    # 박스 sentinel 처리
+    if line.startswith('\x00BOX:') and line.endswith('\x00'):
+        key = line[5:-1]
+        xml = templates.get(key, '')
+        if xml:
+            return f'<hp:run charPrIDRef="0">{xml}</hp:run>'
+        return ''
     # 수식 사이 불필요한 공백 제거: '] [' → ']['
     line = re.sub(r'\]\s+\[', '][', line)
 
@@ -460,3 +488,15 @@ _HEADER_XML = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 _VERSION_XML = '''<?xml version="1.0" encoding="UTF-8"?>
 <ha:HWPDocumentVersion xmlns:ha="http://www.hancom.co.kr/hwpml/2011/app"
     major="1" minor="5" micro="0" buildNumber="1"/>'''
+
+_BOX_MARKER_RE = re.compile(r'===(조건박스|보기박스[123])===')
+
+def _substitute_box_markers(text: str) -> str:
+    """텍스트의 ===조건박스=== 등 마커를 sentinel 문자열로 교체."""
+    templates = _load_box_templates()
+    def replace(m):
+        key = m.group(1)
+        if key in templates and templates[key]:
+            return f'\x00BOX:{key}\x00'
+        return ''
+    return _BOX_MARKER_RE.sub(replace, text)
