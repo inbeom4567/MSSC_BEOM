@@ -9,10 +9,10 @@ import GuidelinesModal from './components/GuidelinesModal'
 
 const FEATURES = [
   { id: 'create', label: '유사문항 생성', desc: '이미지 → 유사문항', icon: '✦', color: 'bg-indigo-500' },
-  { id: 'solve', label: '변형문항 해설', desc: '이미지 → 해설', icon: '✎', color: 'bg-violet-500' },
-  { id: 'scan', label: '스캔 처리', desc: '스캔 → HWP + 유사문항', icon: '⊡', color: 'bg-sky-500' },
+  { id: 'solve', label: '변형문항 해설', desc: '이미지 → 해설', icon: '✎', color: 'bg-violet-500', hidden: true },
+  { id: 'scan', label: '스캔 처리', desc: '스캔 → 한글 파일', icon: '⊡', color: 'bg-sky-500' },
   { id: 'history', label: '히스토리', desc: '저장 · 비교', icon: '≋', color: 'bg-slate-500' },
-  { id: 'prompt', label: '프롬프트 설정', desc: '피드백 반영', icon: '⚙', color: 'bg-slate-500' },
+  { id: 'prompt', label: '프롬프트 설정', desc: '피드백 반영', icon: '⚙', color: 'bg-slate-500', hidden: true },
   { id: 'guide', label: '사용설명서', desc: '단계별 사용법', icon: '?', color: 'bg-teal-500' },
 ]
 
@@ -127,7 +127,7 @@ function App() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 max-w-3xl mx-auto">
-              {FEATURES.map((f) => (
+              {FEATURES.filter(f => !f.hidden).map((f) => (
                 <button
                   key={f.id}
                   onClick={() => setActiveFeature(f.id)}
@@ -151,7 +151,7 @@ function App() {
         <div className={activeFeature ? 'py-5' : 'hidden'}>
           {/* 언더라인 탭 */}
           <div className="flex gap-0 border-b border-gray-200 dark:border-[rgba(255,255,255,0.06)] mb-6 overflow-x-auto">
-            {FEATURES.map((f) => (
+            {FEATURES.filter(f => !f.hidden).map((f) => (
               <button
                 key={f.id}
                 onClick={() => setActiveFeature(f.id)}

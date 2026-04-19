@@ -4,11 +4,6 @@ import ScanResultCard from './ScanResultCard'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
-const OUTPUT_MODES = [
-  { value: 'type_only', label: '타이핑만', desc: '원본 문제를 HWP 형식으로' },
-  { value: 'type_with_solution', label: '타이핑+해설', desc: '문제 타이핑 + 해설 생성' },
-  { value: 'variant', label: '유사문항 생성', desc: 'OCR + 유사문항까지' },
-]
 
 export default function TabScan({ grade, model, onStatusChange }) {
   const [step, setStep] = useState('upload')  // upload | detecting | editing | selecting | processing | done
@@ -16,9 +11,7 @@ export default function TabScan({ grade, model, onStatusChange }) {
   const [dragging, setDragging] = useState(false)
   const [detectData, setDetectData] = useState(null)
   const [confirmedBboxes, setConfirmedBboxes] = useState([])
-  const [outputMode, setOutputMode] = useState('type_only')
-  const [variantCount, setVariantCount] = useState(1)
-  const [isStudentPaper, setIsStudentPaper] = useState(false)
+  const outputMode = 'type_only'
   const [cards, setCards] = useState([])
   const [error, setError] = useState(null)
   const [hwpxUrl, setHwpxUrl] = useState(null)
@@ -78,13 +71,14 @@ export default function TabScan({ grade, model, onStatusChange }) {
     }
   }
 
-  const handleConfirm = (confirmedBboxes) => {
-    setConfirmedBboxes(confirmedBboxes)
-    setStep('selecting')
+  const handleConfirm = (bboxes) => {
+    setConfirmedBboxes(bboxes)
+    handleProcess(bboxes)
   }
 
-  const handleProcess = async () => {
-    const selected = confirmedBboxes.filter(b => b.selected)
+  const handleProcess = async (bboxes) => {
+    const resolved = bboxes || confirmedBboxes
+    const selected = resolved.filter(b => b.selected)
     if (selected.length === 0) return
 
     setCards(selected.map(bb => ({
@@ -100,12 +94,12 @@ export default function TabScan({ grade, model, onStatusChange }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pages: detectData.pages,
-          confirmed_bboxes: confirmedBboxes,
-          output_mode: outputMode,
-          variant_count: variantCount,
+          confirmed_bboxes: resolved,
+          output_mode: 'type_only',
+          variant_count: 1,
           model,
           grade,
-          is_student_paper: isStudentPaper,
+          is_student_paper: false,
         }),
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail || '처리 실패') }
@@ -228,56 +222,6 @@ export default function TabScan({ grade, model, onStatusChange }) {
         </>
       )}
 
-      {/* ── 3단계: 출력 방식 선택 ── */}
-      {step === 'selecting' && (
-        <div className="bg-white dark:bg-[#22252E] rounded-xl border border-gray-200 dark:border-[#353844] p-6 shadow-sm space-y-5">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setStep('editing')} className="text-sm text-gray-500 dark:text-[#5A5E70] hover:underline">← 크롭 수정</button>
-            <h2 className="text-base font-semibold text-gray-700 dark:text-[#E2E4F0]">처리 방식 선택</h2>
-          </div>
-          <p className="text-sm text-gray-500 dark:text-[#5A5E70]">{confirmedBboxes.filter(b => b.selected).length}개 문제에 일괄 적용됩니다.</p>
-
-          <div className="flex gap-3 flex-wrap">
-            {OUTPUT_MODES.map(om => (
-              <button key={om.value} onClick={() => setOutputMode(om.value)}
-                className={`px-4 py-3 rounded-xl text-sm border transition-colors ${outputMode === om.value ? 'border-sky-500 dark:border-violet-500 bg-sky-50 dark:bg-violet-500/10 text-sky-700 dark:text-violet-300 font-semibold' : 'border-gray-200 dark:border-[#353844] text-gray-600 dark:text-[#5A5E70] hover:bg-gray-50 dark:hover:bg-[#2A2D38]'}`}>
-                <div className="font-semibold">{om.label}</div>
-                <div className="text-xs opacity-70 mt-0.5">{om.desc}</div>
-              </button>
-            ))}
-          </div>
-
-          {outputMode === 'variant' && (
-            <div>
-              <p className="text-xs font-semibold text-gray-500 dark:text-[#5A5E70] uppercase tracking-wide mb-2">유사문항 수</p>
-              <div className="flex gap-2">
-                {[1, 2].map(n => (
-                  <button key={n} onClick={() => setVariantCount(n)}
-                    className={`px-4 py-2 rounded-lg text-sm border transition-colors ${variantCount === n ? 'border-sky-500 dark:border-violet-500 bg-sky-50 dark:bg-violet-500/10 text-sky-700 dark:text-violet-300 font-semibold' : 'border-gray-200 dark:border-[#353844] text-gray-600 dark:text-[#5A5E70]'}`}>
-                    {n}개
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-[#5A5E70] uppercase tracking-wide mb-2">스캔 유형</p>
-            <button
-              onClick={() => setIsStudentPaper(v => !v)}
-              className={`px-4 py-3 rounded-xl text-sm border transition-colors ${isStudentPaper ? 'border-sky-500 dark:border-violet-500 bg-sky-50 dark:bg-violet-500/10 text-sky-700 dark:text-violet-300 font-semibold' : 'border-gray-200 dark:border-[#353844] text-gray-600 dark:text-[#5A5E70] hover:bg-gray-50 dark:hover:bg-[#2A2D38]'}`}
-            >
-              <div className="font-semibold">학생 시험지 모드</div>
-              <div className="text-xs opacity-70 mt-0.5">손필기 제외, 인쇄 문제만 처리</div>
-            </button>
-          </div>
-
-          <button onClick={handleProcess}
-            className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-sky-500 to-blue-600 dark:from-violet-600 dark:to-purple-700 shadow-md hover:opacity-90 transition-all">
-            ✦ 처리 시작 ({confirmedBboxes.filter(b => b.selected).length}개 문제)
-          </button>
-        </div>
-      )}
 
       {/* 에러 */}
       {error && (
