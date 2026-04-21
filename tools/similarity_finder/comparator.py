@@ -50,3 +50,41 @@ def build_user_message(original: str, problems: list[dict]) -> str:
         lines.append(p['text'].strip())
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
+
+
+def chunk_problems(problems: list[dict], chunk_size: int = 100) -> list[list[dict]]:
+    """문제집이 너무 크면 chunk_size 단위로 분할.
+
+    Args:
+        problems: 문제 리스트.
+        chunk_size: 한 청크당 최대 문제 수.
+
+    Returns:
+        분할된 문제 청크 리스트. 빈 리스트면 빈 리스트 반환.
+    """
+    if not problems:
+        return []
+    return [problems[i : i + chunk_size] for i in range(0, len(problems), chunk_size)]
+
+
+def merge_results(chunk_results: list[dict]) -> dict:
+    """배치 결과들을 병합. 번호 중복은 첫 번째 발견만 유지.
+
+    Args:
+        chunk_results: 각 청크의 비교 결과 리스트.
+                      각 항목은 {"쌍둥이": [...], "유형유사": [...]} 형태.
+
+    Returns:
+        병합된 결과. 번호 중복은 제거됨.
+    """
+    merged = {"쌍둥이": [], "유형유사": []}
+    seen = {"쌍둥이": set(), "유형유사": set()}
+    for result in chunk_results:
+        for bucket in ("쌍둥이", "유형유사"):
+            for item in result.get(bucket, []):
+                num = item.get("번호")
+                if num is None or num in seen[bucket]:
+                    continue
+                seen[bucket].add(num)
+                merged[bucket].append(item)
+    return merged
