@@ -243,7 +243,8 @@ function App() {
 function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesName, setGuidelines, setGuidelinesName, onOpenModal }) {
   return (
     <>
-      <div className="flex items-center gap-2">
+      {/* 숨김처리 2026-04-22: 학년 셀렉트 — state/핸들러는 보존 (API 요청에 grade 계속 전달), 차후 복원 가능 */}
+      <div className="hidden flex items-center gap-2">
         <span className="text-[11px] font-semibold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide">학년</span>
         <select
           value={grade}
@@ -254,7 +255,8 @@ function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesN
         </select>
       </div>
 
-      <div className="w-px h-5 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
+      {/* 숨김처리 2026-04-22: 구분선 (학년 ↔ 모델) */}
+      <div className="hidden w-px h-5 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
 
       <div className="flex items-center gap-2">
         <span className="text-[11px] font-semibold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide">모델</span>
@@ -267,11 +269,13 @@ function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesN
         </select>
       </div>
 
-      <div className="w-px h-5 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
+      {/* 숨김처리 2026-04-22: 구분선 (모델 ↔ 지침) */}
+      <div className="hidden w-px h-5 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
 
+      {/* 숨김처리 2026-04-22: 지침 버튼 — state/핸들러 보존 (guidelines는 API 요청에 계속 전달), 차후 복원 가능 */}
       <button
         onClick={onOpenModal}
-        className={`flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border transition-colors ${
+        className={`hidden flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border transition-colors ${
           guidelines
             ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
             : 'border-gray-200 dark:border-[rgba(255,255,255,0.08)] bg-gray-50 dark:bg-[#141516] text-gray-500 dark:text-[#8a8f98] hover:bg-gray-100 dark:hover:bg-[#1a1a1c]'
@@ -285,12 +289,13 @@ function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesN
 
       {guidelines && (
         <>
-          <span className="text-[11px] text-gray-400 dark:text-[#8a8f98] truncate max-w-[160px]">
+          {/* 숨김처리 2026-04-22: 지침 적용 상태 표시 */}
+          <span className="hidden text-[11px] text-gray-400 dark:text-[#8a8f98] truncate max-w-[160px]">
             {guidelinesName || guidelines.slice(0, 25)}
           </span>
           <button
             onClick={() => { setGuidelines(''); setGuidelinesName('') }}
-            className="text-[11px] text-red-400 hover:text-red-500 transition-colors"
+            className="hidden text-[11px] text-red-400 hover:text-red-500 transition-colors"
           >
             해제
           </button>
