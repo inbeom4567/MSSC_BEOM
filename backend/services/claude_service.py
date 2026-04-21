@@ -11,10 +11,15 @@ load_dotenv()
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
+ADVISOR_MODEL = "claude-opus-4-7"
+
 # 토큰당 가격 (USD per 1M tokens)
 PRICING = {
     "claude-sonnet-4-20250514": {"input": 3, "output": 15},
+    "claude-sonnet-4-6": {"input": 3, "output": 15},
     "claude-opus-4-20250514": {"input": 15, "output": 75},
+    "claude-opus-4-6": {"input": 15, "output": 75},
+    "claude-opus-4-7": {"input": 15, "output": 75},
 }
 
 
@@ -38,6 +43,43 @@ def _make_usage_info(message, model: str) -> dict:
         "cost_usd": round(cost_usd, 4),
         "cost_krw": round(cost_usd * 1450, 0),  # 대략적 환율
         "model": model,
+    }
+
+
+def _extract_text(message) -> str:
+    """advisor tool 응답에서 텍스트 블록만 추출"""
+    return "".join(
+        block.text for block in message.content
+        if getattr(block, "type", "") == "text" and hasattr(block, "text")
+    )
+
+
+def _make_usage_with_advisor(message, executor_model_id: str) -> dict:
+    """Advisor 비용 포함 사용량 계산"""
+    exec_input = message.usage.input_tokens
+    exec_output = message.usage.output_tokens
+    exec_cost = _calc_cost(executor_model_id, exec_input, exec_output)
+
+    adv_input = adv_output = 0
+    adv_cost = 0.0
+    iterations = getattr(message.usage, "iterations", None)
+    if iterations:
+        for it in iterations:
+            if getattr(it, "type", "") == "advisor_message":
+                ai = getattr(it, "input_tokens", 0)
+                ao = getattr(it, "output_tokens", 0)
+                adv_input += ai
+                adv_output += ao
+                adv_cost += _calc_cost(ADVISOR_MODEL, ai, ao)
+
+    total_usd = exec_cost + adv_cost
+    return {
+        "input_tokens": exec_input + adv_input,
+        "output_tokens": exec_output + adv_output,
+        "total_tokens": exec_input + exec_output + adv_input + adv_output,
+        "cost_usd": round(total_usd, 4),
+        "cost_krw": round(total_usd * 1450, 0),
+        "model": executor_model_id,
     }
 
 
@@ -126,6 +168,27 @@ class ClaudeService:
         except FileNotFoundError:
             fewshot = ""
         return base + self.mapping_ref + ("\n\n" + fewshot if fewshot else "")
+
+    async def _call_with_advisor(self, model_id: str, max_tokens: int, system: str, messages: list) -> tuple[str, dict]:
+        """Advisor Tool(Opus)로 전략 조언 받으며 생성 (베타). 실패 시 일반 호출로 폴백."""
+        try:
+            message = await self.client.beta.messages.create(
+                model=model_id,
+                max_tokens=max_tokens,
+                betas=["advisor-tool-2026-03-01"],
+                tools=[{"type": "advisor_20260301", "name": "advisor", "model": ADVISOR_MODEL}],
+                system=system,
+                messages=messages,
+            )
+            return _extract_text(message), _make_usage_with_advisor(message, model_id)
+        except Exception:
+            message = await self.client.messages.create(
+                model=model_id,
+                max_tokens=max_tokens,
+                system=system,
+                messages=messages,
+            )
+            return message.content[0].text, _make_usage_info(message, model_id)
 
     def reload_prompts(self):
         self.solve_prompt = self._build_prompt("solve_prompt.txt")
@@ -234,14 +297,10 @@ class ClaudeService:
 
         content.append({"type": "text", "text": user_text})
 
-        message = await self.client.messages.create(
-            model=model_id,
-            max_tokens=8192,
-            system=system_prompt,
-            messages=[{"role": "user", "content": content}],
+        raw_text, usage1 = await self._call_with_advisor(
+            model_id, 8192, system_prompt,
+            [{"role": "user", "content": content}],
         )
-        raw_text = message.content[0].text
-        usage1 = _make_usage_info(message, model_id)
 
         # 2차 검증 (계산 재검산 + 형식 정리)
         cleaned_text, usage2 = await self._cleanup_output(raw_text, model_id)
@@ -272,14 +331,10 @@ class ClaudeService:
         grade_prompt = self._get_grade_prompt(grade)
         system_prompt = self.variant_solve_prompt + grade_prompt
 
-        message = await self.client.messages.create(
-            model=model_id,
-            max_tokens=8192,
-            system=system_prompt,
-            messages=[{"role": "user", "content": content}],
+        raw_text, usage1 = await self._call_with_advisor(
+            model_id, 8192, system_prompt,
+            [{"role": "user", "content": content}],
         )
-        raw_text = message.content[0].text
-        usage1 = _make_usage_info(message, model_id)
 
         # 2차 검증 (계산 재검산 + 정답 확인)
         verified_text, usage2 = await self._verify_solve_output(raw_text, model_id)
@@ -312,14 +367,10 @@ class ClaudeService:
         grade_prompt = self._get_grade_prompt(grade)
         system_prompt = self.solve_prompt + grade_prompt
 
-        message = await self.client.messages.create(
-            model=model_id,
-            max_tokens=8192,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_text}],
+        raw_text, usage1 = await self._call_with_advisor(
+            model_id, 8192, system_prompt,
+            [{"role": "user", "content": user_text}],
         )
-        raw_text = message.content[0].text
-        usage1 = _make_usage_info(message, model_id)
 
         # 2차 검증
         cleaned_text, usage2 = await self._cleanup_output(raw_text, model_id)
@@ -345,14 +396,10 @@ class ClaudeService:
         grade_prompt = self._get_grade_prompt(grade)
         system_prompt = self.variant_solve_prompt + grade_prompt
 
-        message = await self.client.messages.create(
-            model=model_id,
-            max_tokens=8192,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_text}],
+        raw_text, usage1 = await self._call_with_advisor(
+            model_id, 8192, system_prompt,
+            [{"role": "user", "content": user_text}],
         )
-        raw_text = message.content[0].text
-        usage1 = _make_usage_info(message, model_id)
 
         # 2차 검증
         verified_text, usage2 = await self._verify_solve_output(raw_text, model_id)
@@ -369,22 +416,19 @@ class ClaudeService:
         """생성된 결과를 수정"""
         model_id = self._get_model(model)
 
-        message = await self.client.messages.create(
-            model=model_id,
-            max_tokens=8192,
-            system=self.solve_prompt,
-            messages=[
+        text, usage = await self._call_with_advisor(
+            model_id, 8192, self.solve_prompt,
+            [
                 {"role": "user", "content": "아래 유사문항과 풀이를 생성했습니다:\n\n" + original_result},
                 {"role": "assistant", "content": "네, 확인했습니다."},
                 {"role": "user", "content": f"다음 지시에 따라 위 문제와 풀이를 수정해주세요:\n\n{instruction}\n\n수정된 전체 결과를 다시 출력해주세요. 기존 출력 형식(-유사문항-, -풀이-)을 유지하세요."},
             ],
         )
-        text = message.content[0].text
         processed_text, graphs = process_graphs_in_text(text)
         return {
             "text": processed_text,
             "graphs": graphs,
-            "usage": _make_usage_info(message, model_id),
+            "usage": usage,
         }
 
     async def process_scan(self, ocr_data: dict, mode: str, variant_count: int, model: str, grade: str, output_mode: str = "variant") -> dict:
@@ -497,14 +541,10 @@ class ClaudeService:
         else:
             system_prompt = self.solve_prompt + grade_prompt
 
-        message = await self.client.messages.create(
-            model=model_id,
-            max_tokens=8192,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_text}],
+        raw_text, usage1 = await self._call_with_advisor(
+            model_id, 8192, system_prompt,
+            [{"role": "user", "content": user_text}],
         )
-        raw_text = message.content[0].text
-        usage1 = _make_usage_info(message, model_id)
 
         # 검증 패스
         cleaned_text, usage2 = await self._cleanup_scan_output(raw_text, model_id, variant_count)
