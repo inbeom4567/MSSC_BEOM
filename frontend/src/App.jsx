@@ -244,7 +244,7 @@ function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesN
   return (
     <>
       {/* 숨김처리 2026-04-22: 학년 셀렉트 — state/핸들러는 보존 (API 요청에 grade 계속 전달), 차후 복원 가능 */}
-      <div className="hidden flex items-center gap-2">
+      <div className="hidden items-center gap-2">
         <span className="text-[11px] font-semibold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide">학년</span>
         <select
           value={grade}
@@ -275,7 +275,7 @@ function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesN
       {/* 숨김처리 2026-04-22: 지침 버튼 — state/핸들러 보존 (guidelines는 API 요청에 계속 전달), 차후 복원 가능 */}
       <button
         onClick={onOpenModal}
-        className={`hidden flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border transition-colors ${
+        className={`hidden items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border transition-colors ${
           guidelines
             ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
             : 'border-gray-200 dark:border-[rgba(255,255,255,0.08)] bg-gray-50 dark:bg-[#141516] text-gray-500 dark:text-[#8a8f98] hover:bg-gray-100 dark:hover:bg-[#1a1a1c]'
