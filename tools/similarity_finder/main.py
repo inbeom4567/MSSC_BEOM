@@ -14,7 +14,7 @@ from tkinter import filedialog, messagebox, ttk
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "backend"))
 
-from services.hwpx_service import read_hwpx, split_problems  # noqa: E402
+from services.hwpx_service import read_hwpx, split_problems, filter_hwpx_by_numbers  # noqa: E402
 
 sys.path.insert(0, str(PROJECT_ROOT))
 from tools.similarity_finder import comparator  # noqa: E402
@@ -29,6 +29,7 @@ class SimilarityFinderApp:
         self.original_path = tk.StringVar()
         self.problems_path = tk.StringVar()
         self.model_var = tk.StringVar(value="claude-sonnet-4-6")
+        self.export_mode_var = tk.StringVar(value="copy")  # "copy" | "cut"
         self.last_result: dict | None = None
         self.is_searching = False
 
@@ -98,6 +99,17 @@ class SimilarityFinderApp:
         self.opus_btn = ttk.Button(btn_frame, text="Opus로 재확인", command=self._retry_opus, state=tk.DISABLED)
         self.opus_btn.pack(side=tk.LEFT)
 
+        # HWPX 추출 UI (복사/잘라내기 + 내보내기 버튼)
+        export_frame = ttk.LabelFrame(frm, text="HWPX 추출", padding=5)
+        export_frame.grid(row=11, column=0, columnspan=2, sticky="we", pady=(5, 0))
+        ttk.Radiobutton(export_frame, text="복사 (원본 유지)", variable=self.export_mode_var,
+                        value="copy").pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Radiobutton(export_frame, text="잘라내기 (원본에서 제거)", variable=self.export_mode_var,
+                        value="cut").pack(side=tk.LEFT, padx=(0, 10))
+        self.export_btn = ttk.Button(export_frame, text="HWPX로 내보내기",
+                                     command=self._on_export, state=tk.DISABLED)
+        self.export_btn.pack(side=tk.LEFT, padx=(10, 0))
+
         # grid 확장 설정
         frm.columnconfigure(0, weight=1)
         frm.rowconfigure(9, weight=1)
@@ -150,6 +162,7 @@ class SimilarityFinderApp:
             self.search_btn.config(state=tk.DISABLED)
             self.copy_btn.config(state=tk.DISABLED)
             self.opus_btn.config(state=tk.DISABLED)
+            self.export_btn.config(state=tk.DISABLED)
             self.progress.start(10)
         else:
             self.search_btn.config(state=tk.NORMAL)
@@ -258,6 +271,11 @@ class SimilarityFinderApp:
 
         self.copy_btn.config(state=tk.NORMAL)
         self.opus_btn.config(state=tk.NORMAL if self.model_var.get() == "claude-sonnet-4-6" else tk.DISABLED)
+        # 결과에 번호가 1개 이상 있을 때만 내보내기 활성화
+        if self._selected_numbers():
+            self.export_btn.config(state=tk.NORMAL)
+        else:
+            self.export_btn.config(state=tk.DISABLED)
         self._update_status(f"완료 (총 {problems_count}문제 비교)")
 
     def _copy_result(self):
@@ -273,6 +291,120 @@ class SimilarityFinderApp:
             return
         self.model_var.set("claude-opus-4-7")
         self._on_search()
+
+    def _selected_numbers(self) -> set[int]:
+        """현재 결과에 표시된 유사문제 번호 집합 (쌍둥이 + 유형유사)."""
+        if not self.last_result:
+            return set()
+        nums: set[int] = set()
+        for key in ("쌍둥이", "유형유사"):
+            for item in self.last_result.get(key, []) or []:
+                n = item.get("번호")
+                try:
+                    nums.add(int(n))
+                except (TypeError, ValueError):
+                    continue
+        return nums
+
+    def _on_export(self):
+        """HWPX로 내보내기: 선택된 유사문항 파일 + 원본(복사/잘라내기) 파일 2개를 생성."""
+        if self.is_searching:
+            return
+
+        selected = self._selected_numbers()
+        if not selected:
+            messagebox.showwarning("선택된 문제 없음",
+                                   "결과에 유사문제 번호가 없어 내보낼 수 없습니다.")
+            return
+
+        problems_path = self.problems_path.get().strip()
+        if not problems_path:
+            messagebox.showwarning("문제집 없음", "문제집 파일이 선택되지 않았습니다.")
+            return
+
+        try:
+            source_bytes = Path(problems_path).read_bytes()
+            original_text = read_hwpx(source_bytes)
+            all_problems = split_problems(original_text)
+            all_numbers = {p["number"] for p in all_problems}
+        except Exception as exc:
+            messagebox.showerror("문제집 읽기 실패", f"{type(exc).__name__}: {exc}")
+            return
+
+        missing = selected - all_numbers
+        if missing:
+            proceed = messagebox.askokcancel(
+                "일부 번호 누락",
+                f"결과에 있는 번호 중 문제집에서 찾지 못한 번호: {sorted(missing)}\n"
+                f"찾은 번호만 내보내시겠습니까?",
+            )
+            if not proceed:
+                return
+            selected = selected & all_numbers
+            if not selected:
+                messagebox.showerror("내보낼 번호 없음", "유효한 번호가 없습니다.")
+                return
+
+        mode = self.export_mode_var.get()  # "copy" | "cut"
+
+        # 1) 유사문항 파일 바이트 생성
+        try:
+            similar_bytes = filter_hwpx_by_numbers(source_bytes, selected)
+        except Exception as exc:
+            messagebox.showerror("추출 실패", f"유사문항 파일 생성 실패: {exc}")
+            return
+
+        # 2) 원본(나머지) 파일 바이트 생성
+        if mode == "copy":
+            remainder_bytes = source_bytes  # 원본 그대로
+            remainder_label = "원본(전체)"
+        else:  # "cut"
+            keep_remainder = all_numbers - selected
+            try:
+                remainder_bytes = filter_hwpx_by_numbers(source_bytes, keep_remainder)
+            except Exception as exc:
+                messagebox.showerror("추출 실패", f"원본(잘라내기) 파일 생성 실패: {exc}")
+                return
+            remainder_label = "원본(선택 제거)"
+
+        # 3) 저장 위치 2번 묻기
+        src_stem = Path(problems_path).stem
+        similar_default = f"{src_stem}_유사문항.hwpx"
+        similar_save = filedialog.asksaveasfilename(
+            title="유사문항 파일 저장 위치",
+            defaultextension=".hwpx",
+            initialfile=similar_default,
+            filetypes=[("HWPX 파일", "*.hwpx")],
+        )
+        if not similar_save:
+            self._update_status("내보내기 취소됨")
+            return
+
+        remainder_default = f"{src_stem}_{'복사' if mode == 'copy' else '잘라내기'}.hwpx"
+        remainder_save = filedialog.asksaveasfilename(
+            title=f"{remainder_label} 파일 저장 위치",
+            defaultextension=".hwpx",
+            initialfile=remainder_default,
+            filetypes=[("HWPX 파일", "*.hwpx")],
+        )
+        if not remainder_save:
+            self._update_status("내보내기 취소됨")
+            return
+
+        try:
+            Path(similar_save).write_bytes(similar_bytes)
+            Path(remainder_save).write_bytes(remainder_bytes)
+        except Exception as exc:
+            messagebox.showerror("저장 실패", f"{type(exc).__name__}: {exc}")
+            return
+
+        messagebox.showinfo(
+            "내보내기 완료",
+            f"유사문항 파일: {similar_save}\n"
+            f"{remainder_label} 파일: {remainder_save}\n\n"
+            f"추출 번호: {sorted(selected)}",
+        )
+        self._update_status(f"내보내기 완료 — 번호 {sorted(selected)}")
 
 
 def main():
