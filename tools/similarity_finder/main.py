@@ -215,17 +215,49 @@ class SimilarityFinderApp:
         (log_dir / f"error_{stamp}.log").write_text(trace, encoding="utf-8")
 
     def _render_result(self, result: dict, problems_count: int):
-        # 다음 태스크(Task 8)에서 예쁜 렌더링 구현
         self.result_text.config(state=tk.NORMAL)
-        self.result_text.insert(tk.END, str(result))
+        self.result_text.delete("1.0", tk.END)
+
+        twins = result.get("쌍둥이", [])
+        similar = result.get("유형유사", [])
+
+        if not twins and not similar:
+            self.result_text.insert(tk.END, "유사한 문제를 찾지 못했습니다.\n")
+        else:
+            self.result_text.insert(tk.END, f"🎯 쌍둥이급 (숫자만 변형) — {len(twins)}개\n", "heading")
+            if twins:
+                for item in twins:
+                    self.result_text.insert(tk.END, f"  • {item.get('번호')}번 — {item.get('이유', '')}\n")
+            else:
+                self.result_text.insert(tk.END, "  (없음)\n")
+
+            self.result_text.insert(tk.END, f"\n📚 유형 유사 — {len(similar)}개\n", "heading")
+            if similar:
+                for item in similar:
+                    self.result_text.insert(tk.END, f"  • {item.get('번호')}번 — {item.get('이유', '')}\n")
+            else:
+                self.result_text.insert(tk.END, "  (없음)\n")
+
+        self.result_text.tag_config("heading", font=("Malgun Gothic", 11, "bold"))
         self.result_text.config(state=tk.DISABLED)
+
+        self.copy_btn.config(state=tk.NORMAL)
+        self.opus_btn.config(state=tk.NORMAL if self.model_var.get() == "claude-sonnet-4-6" else tk.DISABLED)
         self._update_status(f"완료 (총 {problems_count}문제 비교)")
 
     def _copy_result(self):
-        pass
+        text = self.result_text.get("1.0", tk.END).strip()
+        if not text:
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        self._update_status("결과가 클립보드에 복사됨")
 
     def _retry_opus(self):
-        pass
+        if self.is_searching:
+            return
+        self.model_var.set("claude-opus-4-7")
+        self._on_search()
 
 
 def main():
