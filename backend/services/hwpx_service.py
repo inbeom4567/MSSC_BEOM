@@ -505,3 +505,141 @@ def _substitute_box_markers(text: str) -> str:
             return f'\x00BOX:{key}\x00'
         return ''
     return _BOX_MARKER_RE.sub(replace, text)
+
+
+# ──────────────────────────────────────────────
+# HWPX 문제 번호 필터 (특정 번호만 남긴 새 HWPX 생성)
+# ──────────────────────────────────────────────
+
+def filter_hwpx_by_numbers(source_bytes: bytes, keep_numbers: set) -> bytes:
+    """원본 HWPX에서 keep_numbers에 해당하는 문제만 남긴 새 HWPX 생성.
+
+    문제 경계는 `<hp:endNote number="N">`가 달린 paragraph 기준:
+    - 문제 N의 paragraph 블록: 이전 endNote paragraph 다음 ~ endNote N paragraph까지
+    - 해설: endNote 내부 XML
+
+    Args:
+        source_bytes: 원본 HWPX 바이트
+        keep_numbers: 유지할 문제 번호 집합 (endNote number 기준)
+
+    Returns:
+        필터링된 새 HWPX 바이트
+    """
+    with zipfile.ZipFile(io.BytesIO(source_bytes), 'r') as src:
+        section_xml = src.read('Contents/section0.xml').decode('utf-8')
+        other_files = {name: src.read(name) for name in src.namelist()
+                       if name != 'Contents/section0.xml'}
+
+    new_section = _filter_section_xml(section_xml, keep_numbers)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as dst:
+        # mimetype은 압축 안 됨 (HWPX 규격)
+        for name, data in other_files.items():
+            if name == 'mimetype':
+                dst.writestr(name, data, compress_type=zipfile.ZIP_STORED)
+            else:
+                dst.writestr(name, data)
+        dst.writestr('Contents/section0.xml', new_section)
+    buf.seek(0)
+    return buf.read()
+
+
+def _extract_top_level_paragraphs(body: str) -> list[tuple[int, int, str]]:
+    """body XML에서 최상위 <hp:p> paragraph들만 추출 (중첩 무시).
+
+    hp:endNote 내부에는 중첩된 <hp:p>가 있기 때문에, 단순 비탐욕 regex는
+    첫 번째 내부 </hp:p>에서 잘려서 paragraph 내용이 누락된다.
+    이 함수는 depth를 추적하며 최상위 paragraph 경계를 정확히 찾는다.
+
+    Returns:
+        [(start_offset, end_offset, xml_str), ...] — body 문자열 기준 오프셋
+    """
+    results = []
+    # 모든 <hp:p ...> 열기와 </hp:p> 닫기 토큰 찾기
+    # 자기 닫기 형식 <hp:p ... /> 도 고려 (있을 경우 depth 0 유지)
+    token_re = re.compile(r'<hp:p\b[^>]*?(/?)>|</hp:p>', re.DOTALL)
+
+    depth = 0
+    start = -1
+    for m in token_re.finditer(body):
+        tok = m.group(0)
+        if tok.startswith('</'):
+            # 닫는 태그
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start >= 0:
+                    results.append((start, m.end(), body[start:m.end()]))
+                    start = -1
+        else:
+            # 여는 태그 — 자기 닫기 체크
+            is_self_closing = m.group(1) == '/'
+            if is_self_closing:
+                if depth == 0:
+                    results.append((m.start(), m.end(), body[m.start():m.end()]))
+            else:
+                if depth == 0:
+                    start = m.start()
+                depth += 1
+    return results
+
+
+def _filter_section_xml(section_xml: str, keep_numbers: set) -> str:
+    """section0.xml에서 문제 번호 필터링.
+
+    전략:
+    1. <hs:sec> 루트 래퍼를 찾아서 전/후 분리
+    2. depth-tracking tokenizer로 최상위 paragraph들을 순서대로 파싱
+       (hp:endNote 내부의 중첩 <hp:p>를 무시해야 paragraph 내용이 잘리지 않음)
+    3. 각 paragraph의 endNote 번호 감지 (문제 끝 마커)
+    4. endNote 번호가 keep_numbers에 있으면 해당 블록(이전 경계+1 ~ 현재)을 유지
+    5. 번호 없는 paragraph(선행 공백 등)는 항상 유지
+    6. 마지막 endNote 이후 trailing paragraph들은, 유지된 문제가 있을 때만 보존
+       (모두 제거되는 경우에는 trailing도 제거해서 잘못된 번호 매칭을 방지)
+    """
+    # <hs:sec> 또는 <hp:sec> 등 루트 sec 태그 찾기
+    sec_match = re.search(r'(<[a-z]+:sec\b[^>]*>)(.*)(</[a-z]+:sec>)',
+                         section_xml, re.DOTALL)
+    if not sec_match:
+        # 루트가 없으면 원본 반환 (안전)
+        return section_xml
+
+    prefix = section_xml[:sec_match.start()] + sec_match.group(1)
+    body = sec_match.group(2)
+    suffix = sec_match.group(3) + section_xml[sec_match.end():]
+
+    # 최상위 <hp:p> paragraph 추출 (depth-aware, 중첩 무시)
+    p_iter = _extract_top_level_paragraphs(body)
+
+    en_num_re = re.compile(r'<hp:endNote\s+number="(\d+)"')
+
+    kept_parts = []
+    block_start = 0  # 현재 문제 블록의 시작 paragraph 인덱스
+    any_kept = False
+
+    if p_iter:
+        first_p_start = p_iter[0][0]
+        header = body[:first_p_start]
+    else:
+        return section_xml  # paragraph 없음 → 원본 반환
+
+    for i, (p_start, p_end, p_xml) in enumerate(p_iter):
+        en_match = en_num_re.search(p_xml)
+        if not en_match:
+            continue
+        en_num = int(en_match.group(1))
+        # paragraphs[block_start..i] 가 endNote en_num의 문제 블록
+        if en_num in keep_numbers:
+            for j in range(block_start, i + 1):
+                kept_parts.append(p_iter[j][2])
+            any_kept = True
+        block_start = i + 1
+
+    # 마지막 endNote 이후의 trailing paragraph들은, 실제로 문제를 유지한 경우에만 보존
+    # (빈 keep_numbers 또는 전부 제거되는 경우에는 trailing도 버림 — 유령 번호 방지)
+    if any_kept:
+        for j in range(block_start, len(p_iter)):
+            kept_parts.append(p_iter[j][2])
+
+    new_body = header + ''.join(kept_parts)
+    return prefix + new_body + suffix
