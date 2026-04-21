@@ -104,7 +104,122 @@ class SimilarityFinderApp:
             self.problems_path.set(path)
 
     def _on_search(self):
-        messagebox.showinfo("미구현", "검색 기능은 다음 태스크에서 구현됩니다.")
+        if self.is_searching:
+            return
+
+        original_path = self.original_path.get().strip()
+        problems_path = self.problems_path.get().strip()
+
+        if not original_path or not problems_path:
+            messagebox.showwarning("입력 부족", "두 파일을 모두 선택해주세요.")
+            return
+
+        if original_path.lower().endswith(".hwp") or problems_path.lower().endswith(".hwp"):
+            messagebox.showerror(
+                "HWP 미지원",
+                "구버전 HWP 파일은 지원하지 않습니다.\n한글에서 HWPX로 저장한 뒤 다시 시도하세요.",
+            )
+            return
+
+        self._set_searching(True)
+        self._clear_result()
+        threading.Thread(
+            target=self._run_search,
+            args=(original_path, problems_path, self.model_var.get()),
+            daemon=True,
+        ).start()
+
+    def _set_searching(self, flag: bool):
+        self.is_searching = flag
+        if flag:
+            self.search_btn.config(state=tk.DISABLED)
+            self.copy_btn.config(state=tk.DISABLED)
+            self.opus_btn.config(state=tk.DISABLED)
+            self.progress.start(10)
+        else:
+            self.search_btn.config(state=tk.NORMAL)
+            self.progress.stop()
+
+    def _clear_result(self):
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.config(state=tk.DISABLED)
+        self.last_result = None
+
+    def _update_status(self, msg: str):
+        self.root.after(0, lambda: self.status_var.set(msg))
+
+    def _run_search(self, original_path: str, problems_path: str, model: str):
+        try:
+            self._update_status("원본 파싱 중…")
+            original_bytes = Path(original_path).read_bytes()
+            original_text = read_hwpx(original_bytes)
+
+            # 원본에 문제가 2개 이상이면 첫 번째만 사용 (경고)
+            original_problems = split_problems(original_text)
+            if len(original_problems) > 1:
+                use_first = messagebox.askokcancel(
+                    "다중 문제 감지",
+                    f"원본 파일에 문제가 {len(original_problems)}개 감지되었습니다.\n첫 번째 문제만 사용하시겠습니까?",
+                )
+                if not use_first:
+                    self._update_status("취소됨")
+                    self._set_searching(False)
+                    return
+                original_text = original_problems[0]["text"]
+
+            self._update_status("문제집 파싱 중…")
+            problems_bytes = Path(problems_path).read_bytes()
+            problems_text = read_hwpx(problems_bytes)
+            problems = split_problems(problems_text)
+
+            if not problems or (len(problems) == 1 and problems[0]["number"] == 1 and "-1번-" not in problems_text):
+                messagebox.showerror("문제 감지 실패", "문제집에서 '-N번-' 구분자를 찾지 못했습니다.")
+                self._update_status("실패")
+                self._set_searching(False)
+                return
+
+            self._update_status(f"총 {len(problems)}문제 발견. Claude 호출 시작…")
+            result = comparator.compare(
+                original=original_text,
+                problems=problems,
+                model=model,
+                progress_callback=self._update_status,
+            )
+            self._log_request(original_text, problems, model, result)
+            self.last_result = result
+            self.root.after(0, lambda: self._render_result(result, problems_count=len(problems)))
+
+        except Exception as exc:
+            err = f"{type(exc).__name__}: {exc}"
+            trace = traceback.format_exc()
+            self.root.after(0, lambda: messagebox.showerror("검색 실패", f"{err}\n\n자세한 내용은 로그를 확인하세요."))
+            self._log_error(trace)
+            self._update_status(f"오류: {err}")
+        finally:
+            self._set_searching(False)
+
+    def _log_request(self, original: str, problems: list[dict], model: str, result: dict):
+        log_dir = Path(__file__).parent / "logs"
+        log_dir.mkdir(exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        (log_dir / f"{stamp}.log").write_text(
+            f"MODEL={model}\nPROBLEMS={len(problems)}\n\n=== ORIGINAL ===\n{original}\n\n=== RESULT ===\n{result}\n",
+            encoding="utf-8",
+        )
+
+    def _log_error(self, trace: str):
+        log_dir = Path(__file__).parent / "logs"
+        log_dir.mkdir(exist_ok=True)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        (log_dir / f"error_{stamp}.log").write_text(trace, encoding="utf-8")
+
+    def _render_result(self, result: dict, problems_count: int):
+        # 다음 태스크(Task 8)에서 예쁜 렌더링 구현
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.insert(tk.END, str(result))
+        self.result_text.config(state=tk.DISABLED)
+        self._update_status(f"완료 (총 {problems_count}문제 비교)")
 
     def _copy_result(self):
         pass
