@@ -247,24 +247,13 @@ class SimilarityFinderApp:
         self.result_text.delete("1.0", tk.END)
 
         twins = result.get("쌍둥이", [])
-        similar = result.get("유형유사", [])
 
-        if not twins and not similar:
-            self.result_text.insert(tk.END, "유사한 문제를 찾지 못했습니다.\n")
+        if not twins:
+            self.result_text.insert(tk.END, "숫자 변형 문항을 찾지 못했습니다.\n")
         else:
-            self.result_text.insert(tk.END, f"🎯 쌍둥이급 (숫자만 변형) — {len(twins)}개\n", "heading")
-            if twins:
-                for item in twins:
-                    self.result_text.insert(tk.END, f"  • {item.get('번호')}번 — {item.get('이유', '')}\n")
-            else:
-                self.result_text.insert(tk.END, "  (없음)\n")
-
-            self.result_text.insert(tk.END, f"\n📚 유형 유사 — {len(similar)}개\n", "heading")
-            if similar:
-                for item in similar:
-                    self.result_text.insert(tk.END, f"  • {item.get('번호')}번 — {item.get('이유', '')}\n")
-            else:
-                self.result_text.insert(tk.END, "  (없음)\n")
+            self.result_text.insert(tk.END, f"🎯 숫자 변형 문항 — {len(twins)}개\n", "heading")
+            for item in twins:
+                self.result_text.insert(tk.END, f"  • {item.get('번호')}번 — {item.get('이유', '')}\n")
 
         self.result_text.tag_config("heading", font=("Malgun Gothic", 11, "bold"))
         self.result_text.config(state=tk.DISABLED)
@@ -293,7 +282,7 @@ class SimilarityFinderApp:
         self._on_search()
 
     def _selected_numbers(self) -> set[int]:
-        """현재 결과에 표시된 유사문제 번호 집합 (쌍둥이 + 유형유사)."""
+        """현재 결과에 표시된 숫자 변형 문항 번호 집합."""
         if not self.last_result:
             return set()
         nums: set[int] = set()
