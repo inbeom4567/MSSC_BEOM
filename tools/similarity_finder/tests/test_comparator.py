@@ -78,3 +78,44 @@ def test_merge_results_combines_and_dedupes():
     # 유형유사에 중복 번호(5)는 첫 번째만 유지
     assert [x["번호"] for x in merged["유형유사"]] == [5]
     assert merged["유형유사"][0]["이유"] == "b"
+
+
+from unittest.mock import MagicMock, patch
+
+
+def test_compare_calls_claude_and_parses():
+    fake_response = MagicMock()
+    fake_response.content = [MagicMock(text='{"쌍둥이":[{"번호":1,"이유":"test"}],"유형유사":[]}')]
+
+    from tools.similarity_finder import comparator
+    with patch.object(comparator, "_load_client") as mock_load:
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = fake_response
+        mock_load.return_value = mock_client
+
+        result = comparator.compare(
+            original="문제 원본",
+            problems=[{"number": 1, "text": "p1"}],
+            model="claude-sonnet-4-6",
+        )
+
+        assert result["쌍둥이"] == [{"번호": 1, "이유": "test"}]
+        assert result["유형유사"] == []
+        assert mock_client.messages.create.called
+
+
+def test_compare_auto_batches_large_input():
+    """501개 문제는 6개 청크로 분할되어 6번 호출."""
+    fake_response = MagicMock()
+    fake_response.content = [MagicMock(text='{"쌍둥이":[],"유형유사":[]}')]
+
+    from tools.similarity_finder import comparator
+    with patch.object(comparator, "_load_client") as mock_load:
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = fake_response
+        mock_load.return_value = mock_client
+
+        problems = [{"number": i, "text": f"p{i}"} for i in range(501)]
+        comparator.compare(original="x", problems=problems, model="claude-sonnet-4-6")
+
+        assert mock_client.messages.create.call_count == 6

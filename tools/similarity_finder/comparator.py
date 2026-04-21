@@ -2,7 +2,86 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+from pathlib import Path
+
+import anthropic
+
+
+_SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompt.txt"
+_BACKEND_ENV_PATH = Path(__file__).resolve().parent.parent.parent / "backend" / ".env"
+
+
+def _load_system_prompt() -> str:
+    return _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
+
+
+def _load_api_key() -> str:
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key:
+        return key
+    if _BACKEND_ENV_PATH.exists():
+        for line in _BACKEND_ENV_PATH.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("ANTHROPIC_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    raise RuntimeError("ANTHROPIC_API_KEY가 backend/.env 또는 환경변수에 없습니다.")
+
+
+def _load_client():
+    return anthropic.Anthropic(api_key=_load_api_key())
+
+
+def compare(
+    original: str,
+    problems: list[dict],
+    model: str = "claude-sonnet-4-6",
+    chunk_size: int = 100,
+    progress_callback=None,
+) -> dict:
+    """원본 문제와 문제집을 비교해 유사 문제 번호 반환.
+
+    Args:
+        original: 원본 문제 텍스트 (`read_hwpx` 결과).
+        problems: `split_problems` 결과 리스트.
+        model: claude-sonnet-4-6 또는 claude-opus-4-7.
+        chunk_size: 한 번에 보낼 최대 문제 수.
+        progress_callback: 진행 알림 callable(str). 없으면 무시.
+
+    Returns:
+        {"쌍둥이": [{"번호": int, "이유": str}, ...], "유형유사": [...]}
+    """
+    system = _load_system_prompt()
+    client = _load_client()
+    chunks = chunk_problems(problems, chunk_size=chunk_size)
+
+    chunk_results = []
+    for idx, chunk in enumerate(chunks, 1):
+        if progress_callback:
+            progress_callback(f"Claude 호출 중 ({idx}/{len(chunks)})…")
+
+        user_message = build_user_message(original, chunk)
+        raw_text = _call_claude(client, system, user_message, model)
+        chunk_results.append(parse_response(raw_text))
+
+    return merge_results(chunk_results)
+
+
+def _call_claude(client, system: str, user: str, model: str, retry: bool = True) -> str:
+    """Claude 호출 + JSON 파싱 실패 시 1회 재시도."""
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=4096,
+            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user}],
+        )
+        return response.content[0].text
+    except Exception:
+        if retry:
+            return _call_claude(client, system, user, model, retry=False)
+        raise
 
 
 def parse_response(raw: str) -> dict:
