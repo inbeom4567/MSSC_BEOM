@@ -33,6 +33,21 @@ class SimilarityFinderApp:
         self.is_searching = False
 
         self._build_ui()
+        self._verify_api_key()
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _verify_api_key(self):
+        try:
+            comparator._load_api_key()
+        except RuntimeError as e:
+            messagebox.showerror("API 키 누락", str(e))
+            self.root.destroy()
+
+    def _on_close(self):
+        if self.is_searching:
+            if not messagebox.askokcancel("검색 중", "검색이 진행 중입니다. 종료하시겠습니까?"):
+                return
+        self.root.destroy()
 
     def _build_ui(self):
         frm = ttk.Frame(self.root, padding=10)
@@ -262,8 +277,9 @@ class SimilarityFinderApp:
 
 def main():
     root = tk.Tk()
-    SimilarityFinderApp(root)
-    root.mainloop()
+    app = SimilarityFinderApp(root)
+    if root.winfo_exists():
+        root.mainloop()
 
 
 if __name__ == "__main__":
