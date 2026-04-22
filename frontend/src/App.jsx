@@ -16,6 +16,9 @@ const FEATURES = [
   { id: 'guide', label: '사용설명서', desc: '단계별 사용법', icon: '?', color: 'bg-teal-500' },
 ]
 
+// SettingsBar의 학년 셀렉트가 현재 숨김(조건부 렌더에서 미노출)이라 본 상수는 UI에서 미사용 상태.
+// grade state는 기본값 'none'으로 유지되어 API 요청에 계속 전달됩니다.
+// 학년 선택 UI 복원 시 SettingsBar에서 이 상수를 다시 참조하세요.
 const GRADES = [
   { value: 'none', label: '학년 무관' },
   { value: 'mid1', label: '중1' },
@@ -183,17 +186,11 @@ function App() {
 
       </main>
 
-      {/* ── 하단 고정 설정바 (기능 화면) ── */}
-      {activeFeature && !['history', 'prompt', 'scan', 'guide'].includes(activeFeature) && (
+      {/* ── 하단 고정 설정바 (유사문항 생성 탭 전용) ── */}
+      {activeFeature === 'create' && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-[#0f1011]/90 border-t border-gray-200 dark:border-[rgba(255,255,255,0.06)] z-30 shadow-lg backdrop-blur-md">
           <div className="max-w-5xl mx-auto px-5 py-2.5 flex items-center gap-3 flex-wrap justify-center">
-            <SettingsBar
-              grade={grade} setGrade={setGrade}
-              model={model} setModel={setModel}
-              guidelines={guidelines} guidelinesName={guidelinesName}
-              setGuidelines={setGuidelines} setGuidelinesName={setGuidelinesName}
-              onOpenModal={() => setShowGuidelinesModal(true)}
-            />
+            <SettingsBar model={model} setModel={setModel} />
           </div>
         </div>
       )}
@@ -240,68 +237,21 @@ function App() {
   )
 }
 
-function SettingsBar({ grade, setGrade, model, setModel, guidelines, guidelinesName, setGuidelines, setGuidelinesName, onOpenModal }) {
+// SettingsBar — 현재 노출 항목은 모델 셀렉트뿐입니다.
+// 학년(grade)/지침(guidelines)은 App 상위 state에서 기본값으로 유지되어 API 요청에 계속 전달됩니다.
+// 차후 UI 복원이 필요하면 App.jsx의 state + 본 컴포넌트에 select/버튼을 다시 추가하세요.
+function SettingsBar({ model, setModel }) {
   return (
-    <>
-      {/* 숨김처리 2026-04-22: 학년 셀렉트 — state/핸들러는 보존 (API 요청에 grade 계속 전달), 차후 복원 가능 */}
-      <div className="hidden items-center gap-2">
-        <span className="text-[11px] font-semibold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide">학년</span>
-        <select
-          value={grade}
-          onChange={(e) => setGrade(e.target.value)}
-          className="text-[13px] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg px-2.5 py-1.5 bg-gray-50 dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 transition-colors"
-        >
-          {GRADES.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
-        </select>
-      </div>
-
-      {/* 숨김처리 2026-04-22: 구분선 (학년 ↔ 모델) */}
-      <div className="hidden w-px h-5 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
-
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-semibold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide">모델</span>
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="text-[13px] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg px-2.5 py-1.5 bg-gray-50 dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 transition-colors"
-        >
-          {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </select>
-      </div>
-
-      {/* 숨김처리 2026-04-22: 구분선 (모델 ↔ 지침) */}
-      <div className="hidden w-px h-5 bg-gray-200 dark:bg-[rgba(255,255,255,0.08)]" />
-
-      {/* 숨김처리 2026-04-22: 지침 버튼 — state/핸들러 보존 (guidelines는 API 요청에 계속 전달), 차후 복원 가능 */}
-      <button
-        onClick={onOpenModal}
-        className={`hidden items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border transition-colors ${
-          guidelines
-            ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-            : 'border-gray-200 dark:border-[rgba(255,255,255,0.08)] bg-gray-50 dark:bg-[#141516] text-gray-500 dark:text-[#8a8f98] hover:bg-gray-100 dark:hover:bg-[#1a1a1c]'
-        }`}
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] font-semibold text-gray-400 dark:text-[#8a8f98] uppercase tracking-wide">모델</span>
+      <select
+        value={model}
+        onChange={(e) => setModel(e.target.value)}
+        className="text-[13px] border border-gray-200 dark:border-[rgba(255,255,255,0.08)] rounded-lg px-2.5 py-1.5 bg-gray-50 dark:bg-[#141516] text-gray-700 dark:text-[#f7f8f8] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-500 transition-colors"
       >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        지침{guidelines ? ' ✓' : ''}
-      </button>
-
-      {guidelines && (
-        <>
-          {/* 숨김처리 2026-04-22: 지침 적용 상태 표시 */}
-          <span className="hidden text-[11px] text-gray-400 dark:text-[#8a8f98] truncate max-w-[160px]">
-            {guidelinesName || guidelines.slice(0, 25)}
-          </span>
-          <button
-            onClick={() => { setGuidelines(''); setGuidelinesName('') }}
-            className="hidden text-[11px] text-red-400 hover:text-red-500 transition-colors"
-          >
-            해제
-          </button>
-        </>
-      )}
-    </>
+        {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+      </select>
+    </div>
   )
 }
 
