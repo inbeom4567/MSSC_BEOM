@@ -11,7 +11,7 @@ from services.claude_service import ClaudeService
 from services import history_service
 from services.hwpx_service import read_hwpx, create_hwpx, split_problems
 from services.gemini_service import (
-    analyze_graph, recognize_handwriting,
+    analyze_graph,
     ocr_scan_general, ocr_scan_student_paper,
     detect_problem_bboxes,
 )
@@ -105,6 +105,47 @@ app.add_middleware(
 )
 
 claude_service = ClaudeService()
+
+
+def _load_version_info() -> dict:
+    root = Path(__file__).resolve().parent.parent
+    version = "unknown"
+    try:
+        vf = root / "VERSION"
+        if vf.exists():
+            version = vf.read_text(encoding="utf-8").strip()
+    except Exception:
+        pass
+
+    git_sha = "unknown"
+    git_date = "unknown"
+    try:
+        import subprocess
+        sha = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(root), capture_output=True, text=True, timeout=2,
+        )
+        if sha.returncode == 0:
+            git_sha = sha.stdout.strip()
+        dt = subprocess.run(
+            ["git", "log", "-1", "--format=%cd", "--date=format:%Y-%m-%d %H:%M"],
+            cwd=str(root), capture_output=True, text=True, timeout=2,
+        )
+        if dt.returncode == 0:
+            git_date = dt.stdout.strip()
+    except Exception:
+        pass
+
+    return {"version": version, "git_sha": git_sha, "git_date": git_date}
+
+
+_VERSION_INFO = _load_version_info()
+
+
+@app.get("/api/version")
+async def get_version():
+    """현재 백엔드의 VERSION/커밋 정보를 반환 (프론트 헤더 표시용)."""
+    return _VERSION_INFO
 
 
 class PromptFeedbackRequest(BaseModel):
@@ -778,20 +819,6 @@ async def analyze_image_endpoint(file: UploadFile = File(...)):
         return {"analysis": result}
     except Exception as e:
         logger.error(f"이미지 분석 에러: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/recognize-handwriting")
-async def recognize_handwriting_endpoint(file: UploadFile = File(...)):
-    """손필기 이미지에서 수식/텍스트 인식"""
-    logger.info(f"손필기 인식 요청: {file.filename}")
-    try:
-        data = await file.read()
-        img_b64 = base64.b64encode(data).decode("utf-8")
-        result = recognize_handwriting(img_b64, file.content_type)
-        return {"recognition": result}
-    except Exception as e:
-        logger.error(f"손필기 인식 에러: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

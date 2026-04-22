@@ -60,6 +60,15 @@ function App() {
     localStorage.setItem('ms_theme', dark ? 'dark' : 'light')
   }, [dark])
 
+  // 백엔드 버전 정보 (헤더 뱃지용) — 캐시 우회 cache: 'no-store'
+  const [versionInfo, setVersionInfo] = useState(null)
+  useEffect(() => {
+    fetch('http://localhost:8001/api/version', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(v => setVersionInfo(v))
+      .catch(() => setVersionInfo({ version: 'offline', git_sha: '-', git_date: '-' }))
+  }, [])
+
   const saveGuidelinesToStorage = useCallback((list) => {
     setSavedGuidelines(list)
     localStorage.setItem('mathsol_guidelines', JSON.stringify(list))
@@ -94,6 +103,15 @@ function App() {
               M
             </div>
             <span className="text-sm font-bold text-gray-900 dark:text-[#f7f8f8] tracking-tight">MathSolution</span>
+            {versionInfo && (
+              <span
+                className="ml-1.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 dark:bg-[#141516] text-gray-500 dark:text-[#8a8f98] border border-gray-200 dark:border-[rgba(255,255,255,0.06)]"
+                title={`commit ${versionInfo.git_sha} · ${versionInfo.git_date}`}
+              >
+                v{versionInfo.version}
+                <span className="hidden sm:inline text-gray-400 dark:text-[#6a6f78]"> · {versionInfo.git_sha}</span>
+              </span>
+            )}
           </button>
 
           <div className="flex items-center gap-2">

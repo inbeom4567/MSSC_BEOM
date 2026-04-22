@@ -34,7 +34,6 @@ def analyze_image(image_base64: str, media_type: str, prompt: str) -> str:
 
     용도:
     - 원본 문제의 그래프/그림 분석
-    - 손필기 이미지에서 수식/텍스트 추출
     """
     payload = {
         "contents": [{
@@ -113,58 +112,6 @@ def analyze_graph(image_base64: str, media_type: str) -> dict:
             "functions": [],
             "points": [],
             "description": text,
-        }
-
-
-def recognize_handwriting(image_base64: str, media_type: str) -> dict:
-    """손필기 이미지에서 수식과 텍스트를 인식.
-
-    Returns:
-        dict: {
-            "text": str,           # 인식된 전체 텍스트
-            "equations": list,     # 추출된 수식 리스트
-            "confidence": str,     # "high", "medium", "low"
-        }
-    """
-    prompt = """이 손글씨/손필기 수학 이미지를 분석해주세요. 반드시 아래 JSON 형식으로만 응답하세요.
-
-{
-  "text": "인식된 전체 내용을 텍스트로",
-  "equations": ["y = 2x + 1", "x^2 + y^2 = 4"],
-  "confidence": "high" 또는 "medium" 또는 "low"
-}
-
-주의:
-- 수식은 가능한 정확하게 인식
-- 읽기 어려운 부분은 [?]로 표시
-- JSON만 출력"""
-
-    payload = {
-        "contents": [{
-            "parts": [
-                {"inline_data": {"mime_type": media_type, "data": image_base64}},
-                {"text": prompt},
-            ]
-        }]
-    }
-
-    result = _call_gemini(GEMINI_MODEL_ANALYZE, payload)
-    text = result["candidates"][0]["content"]["parts"][0]["text"]
-
-    try:
-        json_match = text
-        if "```" in text:
-            import re
-            m = re.search(r'```(?:json)?\s*(.*?)```', text, re.DOTALL)
-            if m:
-                json_match = m.group(1)
-        return json.loads(json_match)
-    except json.JSONDecodeError:
-        logger.warning(f"손필기 인식 JSON 파싱 실패: {text[:200]}")
-        return {
-            "text": text,
-            "equations": [],
-            "confidence": "low",
         }
 
 
