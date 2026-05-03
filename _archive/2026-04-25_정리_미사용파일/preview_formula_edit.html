@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>수식 편집기 미리보기</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #09090b; color: #f7f8f8; padding: 24px; max-width: 860px; margin: 0 auto; }
+
+h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.sub { font-size: 12px; color: #4a4a52; margin-bottom: 20px; }
+
+/* ── 편집 카드 ── */
+.card { background: #0f1011; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+.card-header { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; }
+.card-label { font-size: 13px; font-weight: 600; }
+.btn-sm { padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: #8a8f98; font-size: 12px; cursor: pointer; }
+.btn-sm:hover { background: #1a1a1e; color: #f7f8f8; }
+.btn-sm.amber { border-color: #f59e0b; color: #fbbf24; background: rgba(245,158,11,0.08); }
+
+/* 툴바 */
+.toolbar-wrap { padding: 12px 14px 0; }
+.toolbar-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.toolbar-label { font-size: 11px; color: #4a4a52; margin-right: 4px; white-space: nowrap; }
+.btn-cat { padding: 6px 12px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.08); background: #141516; color: #8a8f98; font-size: 12px; cursor: pointer; transition: all .12s; }
+.btn-cat:hover { border-color: #818cf8; color: #c7d2fe; }
+.btn-cat.on { border-color: #818cf8; background: rgba(129,140,248,0.15); color: #a5b4fc; font-weight: 600; }
+
+/* 팔레트 */
+.palette { margin: 8px 14px 0; background: #141516; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 10px 12px; display: none; }
+.palette.on { display: block; }
+.pal-section { display: none; }
+.pal-section.on { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.pal-title { font-size: 10px; color: #4a4a52; text-transform: uppercase; letter-spacing: .07em; margin-right: 8px; white-space: nowrap; }
+.btn-sym { padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: #0f1011; color: #d0d0d5; font-size: 13px; cursor: pointer; transition: all .1s; font-family: 'Times New Roman', Georgia, serif; white-space: nowrap; }
+.btn-sym:hover { border-color: #818cf8; background: rgba(129,140,248,0.1); color: #f7f8f8; }
+.btn-sym .hwp { display: block; font-family: monospace; font-size: 9px; color: #4a4a52; line-height: 1.2; }
+
+/* 에디터 */
+.editor-wrap { padding: 10px 14px; }
+.editor-textarea { width: 100%; min-height: 80px; background: #141516; border: 1.5px solid rgba(255,255,255,0.08); border-radius: 9px; color: #f7f8f8; font-size: 13px; line-height: 1.8; padding: 10px 12px; font-family: 'Courier New', monospace; outline: none; resize: vertical; }
+.editor-textarea:focus { border-color: #818cf8; }
+
+/* 구조 버튼 */
+.struct-row { padding: 6px 14px; display: flex; gap: 6px; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,0.04); }
+.btn-struct { padding: 5px 11px; border-radius: 6px; border: 1px dashed rgba(255,255,255,0.1); background: transparent; color: #6a6a7a; font-size: 11px; cursor: pointer; }
+.btn-struct:hover { border-color: #818cf8; color: #a5b4fc; }
+
+/* 미리보기 */
+.preview-area { background: white; margin: 0 14px 14px; border-radius: 8px; padding: 16px 20px; min-height: 60px; }
+.preview-label { font-size: 10px; color: #4a4a52; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .07em; }
+.preview-content { font-size: 14px; color: #111; line-height: 2; font-family: 'Batang', 'Times New Roman', serif; }
+.preview-content .katex { font-size: 1em; }
+
+/* 보기박스 */
+.preview-box { border: 1.5px solid #333; border-radius: 3px; padding: 10px 14px; margin: 8px 0; }
+.preview-box-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #111; }
+.preview-box-content { font-size: 13px; color: #222; line-height: 1.9; }
+
+/* 객관식 선지 — 탭 레이아웃 */
+.preview-choices { font-size: 13px; color: #222; font-family: 'Batang', serif; margin-top: 8px; }
+.choice-row { display: flex; gap: 0; }
+.choice-item { min-width: 120px; padding-right: 16px; }
+.choice-item.wide { min-width: 100%; }
+
+/* 편집 버튼 */
+.edit-btns { padding: 10px 14px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.edit-btns-right { display: flex; gap: 8px; }
+.btn-cancel { padding: 7px 16px; border-radius: 7px; background: transparent; color: #8a8f98; font-size: 12px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+.btn-save { padding: 7px 20px; border-radius: 7px; background: #f59e0b; color: #000; font-size: 13px; font-weight: 700; border: none; cursor: pointer; }
+
+/* 출력 미리보기 카드 */
+.output-card { background: #0f1011; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+.output-header { padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
+.output-body { background: white; margin: 14px; border-radius: 8px; padding: 20px 24px; }
+.output-body .problem-num { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 8px; }
+.output-body .problem-text { font-size: 13px; color: #111; line-height: 2; font-family: 'Batang', 'Times New Roman', serif; }
+
+/* 섹션 제목 */
+.section-title { font-size: 12px; font-weight: 700; color: #8a8f98; text-transform: uppercase; letter-spacing: .08em; margin: 28px 0 10px; }
+
+/* HWP 문법 안내 */
+.syntax-table { background: #0f1011; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+.syntax-row { display: grid; grid-template-columns: 130px 180px 1fr; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.syntax-row:last-child { border-bottom: none; }
+.syntax-row.head { background: #141516; }
+.syntax-cell { padding: 8px 12px; font-size: 12px; }
+.syntax-cell.head { font-size: 11px; color: #4a4a52; text-transform: uppercase; letter-spacing: .07em; }
+.syntax-cell.code { font-family: monospace; color: #a5b4fc; }
+.syntax-cell.render { font-family: 'Times New Roman', serif; color: #d0d0d5; }
+.syntax-cell.desc { color: #6a6a7a; }
+</style>
+</head>
+<body>
+
+<h2>수식 편집기 — HWP 형식 미리보기</h2>
+<p class="sub">한글 수식 문법으로 입력, 실시간 렌더링으로 확인</p>
+
+<!-- ══ 편집기 카드 ══ -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-label">2번 문제 — 수정 중</div>
+    <button class="btn-sm amber">✕ 닫기</button>
+  </div>
+
+  <!-- 수식 팔레트 툴바 -->
+  <div class="toolbar-wrap">
+    <div class="toolbar-row">
+      <span class="toolbar-label">수식 삽입:</span>
+      <button class="btn-cat on" onclick="showCat('frac')">분수 / 루트</button>
+      <button class="btn-cat" onclick="showCat('trig')">삼각함수</button>
+      <button class="btn-cat" onclick="showCat('greek')">그리스 문자</button>
+      <button class="btn-cat" onclick="showCat('calc')">극한 / 시그마</button>
+      <button class="btn-cat" onclick="showCat('rel')">부등호 / 기호</button>
+    </div>
+  </div>
+
+  <div class="palette on" id="palette">
+    <!-- 분수/루트 -->
+    <div class="pal-section on" id="pal-frac">
+      <span class="pal-title">분수·루트</span>
+      <button class="btn-sym" onclick="ins('{□} over {□}')">ᵃ⁄ᵦ<span class="hwp">{} over {}</span></button>
+      <button class="btn-sym" onclick="ins('sqrt {□}')">√□<span class="hwp">sqrt {}</span></button>
+      <button class="btn-sym" onclick="ins('sqrt [3]{□}')">∛□<span class="hwp">sqrt [3]{}</span></button>
+      <button class="btn-sym" onclick="ins('^{□}')">x<sup>n</sup><span class="hwp">^{}</span></button>
+      <button class="btn-sym" onclick="ins('_{□}')">x<sub>n</sub><span class="hwp">_{}</span></button>
+      <button class="btn-sym" onclick="ins('left ( □ right )')">( )<span class="hwp">left()</span></button>
+      <button class="btn-sym" onclick="ins('left | □ right |')">|x|<span class="hwp">left||</span></button>
+      <button class="btn-sym" onclick="ins('left { □ right }')">{ }<span class="hwp">left{}</span></button>
+    </div>
+    <!-- 삼각 -->
+    <div class="pal-section" id="pal-trig">
+      <span class="pal-title">삼각함수</span>
+      <button class="btn-sym" onclick="ins('sin `')">sin</button>
+      <button class="btn-sym" onclick="ins('cos `')">cos</button>
+      <button class="btn-sym" onclick="ins('tan `')">tan</button>
+      <button class="btn-sym" onclick="ins('sin ^{-1}')">sin⁻¹</button>
+      <button class="btn-sym" onclick="ins('cos ^{-1}')">cos⁻¹</button>
+      <button class="btn-sym" onclick="ins('tan ^{-1}')">tan⁻¹</button>
+      <button class="btn-sym" onclick="ins('pi')">π</button>
+    </div>
+    <!-- 그리스 -->
+    <div class="pal-section" id="pal-greek">
+      <span class="pal-title">그리스 문자</span>
+      <button class="btn-sym" onclick="ins('alpha')">α</button>
+      <button class="btn-sym" onclick="ins('beta')">β</button>
+      <button class="btn-sym" onclick="ins('gamma')">γ</button>
+      <button class="btn-sym" onclick="ins('delta')">δ</button>
+      <button class="btn-sym" onclick="ins('theta')">θ</button>
+      <button class="btn-sym" onclick="ins('lambda')">λ</button>
+      <button class="btn-sym" onclick="ins('sigma')">σ</button>
+      <button class="btn-sym" onclick="ins('omega')">ω</button>
+      <button class="btn-sym" onclick="ins('mu')">μ</button>
+      <button class="btn-sym" onclick="ins('Sigma')">Σ</button>
+      <button class="btn-sym" onclick="ins('Pi')">Π</button>
+    </div>
+    <!-- 극한/시그마 -->
+    <div class="pal-section" id="pal-calc">
+      <span class="pal-title">극한·시그마·적분</span>
+      <button class="btn-sym" onclick="ins('lim _{x -> □}')">lim<sub>x→</sub><span class="hwp">lim _{x->}</span></button>
+      <button class="btn-sym" onclick="ins('sum _{k=1}^{□}')">Σ<sup>n</sup><sub>k=1</sub><span class="hwp">sum_{k=1}^{}</span></button>
+      <button class="btn-sym" onclick="ins('int _{□}^{□}')">∫<sub>a</sub><sup>b</sup><span class="hwp">int_{}^{}</span></button>
+      <button class="btn-sym" onclick="ins('infty')">∞</button>
+      <button class="btn-sym" onclick="ins('->') ">→</button>
+      <button class="btn-sym" onclick="ins('log `')">log</button>
+      <button class="btn-sym" onclick="ins('ln `')">ln</button>
+    </div>
+    <!-- 부등호/기호 -->
+    <div class="pal-section" id="pal-rel">
+      <span class="pal-title">부등호·기호</span>
+      <button class="btn-sym" onclick="ins('le')">≤</button>
+      <button class="btn-sym" onclick="ins('ge')">≥</button>
+      <button class="btn-sym" onclick="ins('ne')">≠</button>
+      <button class="btn-sym" onclick="ins('approx')">≈</button>
+      <button class="btn-sym" onclick="ins('+-')">±</button>
+      <button class="btn-sym" onclick="ins('times')">×</button>
+      <button class="btn-sym" onclick="ins('cdot')">·</button>
+      <button class="btn-sym" onclick="ins('cdots')">⋯</button>
+      <button class="btn-sym" onclick="ins('therefore `')">∴</button>
+      <button class="btn-sym" onclick="ins('because `')">∵</button>
+    </div>
+  </div>
+
+  <!-- 텍스트 에디터 -->
+  <div class="editor-wrap">
+    <textarea class="editor-textarea" id="editor" oninput="renderPreview()" rows="4"
+>다음 극한값을 구하여라.
+[lim _{x -> 2} {x ^{2} -4} over {x-2}]</textarea>
+  </div>
+
+  <!-- 구조 삽입 버튼 -->
+  <div class="struct-row">
+    <span style="font-size:11px; color:#4a4a52; margin-right:4px;">구조 삽입:</span>
+    <button class="btn-struct" onclick="insStruct('보기')">📦 보기 박스</button>
+    <button class="btn-struct" onclick="insStruct('조건')">📋 조건 박스</button>
+    <button class="btn-struct" onclick="insStruct('choice-short')">☑ 선지 (짧은)</button>
+    <button class="btn-struct" onclick="insStruct('choice-long')">☑ 선지 (긴)</button>
+  </div>
+
+  <!-- 실시간 미리보기 -->
+  <div style="padding: 8px 14px 4px;">
+    <div class="preview-label">▼ 실시간 렌더링 미리보기 (한글 문서 출력 형태)</div>
+  </div>
+  <div class="preview-area">
+    <div class="preview-content" id="preview-out"></div>
+  </div>
+
+  <div class="edit-btns">
+    <div style="font-size:11px; color:#4a4a52;">수식: [ 한글수식코드 ] 형태로 감싸면 수식으로 렌더링됩니다</div>
+    <div class="edit-btns-right">
+      <button class="btn-cancel">취소</button>
+      <button class="btn-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 출력 예시 ══ -->
+<div class="section-title">출력 예시 — 보기박스 + 조건박스 + 객관식 선지</div>
+
+<div class="output-card">
+  <div class="output-header">
+    <span style="font-size:13px; font-weight:600;">완성된 문제 (한글 문서 출력)</span>
+    <button class="btn-sm">✎ 수정</button>
+  </div>
+  <div class="output-body">
+    <div class="problem-num">23.</div>
+    <div class="problem-text" id="sample-out"></div>
+  </div>
+</div>
+
+<!-- ══ HWP 수식 문법 참고표 ══ -->
+<div class="section-title">HWP 수식 입력 문법 참고</div>
+<div class="syntax-table">
+  <div class="syntax-row head">
+    <div class="syntax-cell head">종류</div>
+    <div class="syntax-cell head">입력 (HWP)</div>
+    <div class="syntax-cell head">결과</div>
+  </div>
+  <div class="syntax-row">
+    <div class="syntax-cell">분수</div>
+    <div class="syntax-cell code">{a} over {b}</div>
+    <div class="syntax-cell render" id="s1"></div>
+  </div>
+  <div class="syntax-row">
+    <div class="syntax-cell">루트</div>
+    <div class="syntax-cell code">sqrt {x+1}</div>
+    <div class="syntax-cell render" id="s2"></div>
+  </div>
+  <div class="syntax-row">
+    <div class="syntax-cell">세제곱근</div>
+    <div class="syntax-cell code">sqrt [3]{8}</div>
+    <div class="syntax-cell render" id="s3"></div>
+  </div>
+  <div class="syntax-row">
+    <div class="syntax-cell">위/아래첨자</div>
+    <div class="syntax-cell code">x ^{2} _{n}</div>
+    <div class="syntax-cell render" id="s4"></div>
+  </div>
+  <div class="syntax-row">
+    <div class="syntax-cell">극한</div>
+    <div class="syntax-cell code">lim _{x -> 0} {sin x} over {x}</div>
+    <div class="syntax-cell render" id="s5"></div>
+  </div>
+  <div class="syntax-row">
+    <div class="syntax-cell">시그마</div>
+    <div class="syntax-cell code">sum _{k=1}^{n} k</div>
+    <div class="syntax-cell render" id="s6"></div>
+  </div>
+  <div class="syntax-row">
+    <div class="syntax-cell">적분</div>
+    <div class="syntax-cell code">int _{0}^{1} x ^{2} dx</div>
+    <div class="syntax-cell render" id="s7"></div>
+  </div>
+  <div class="syntax-row">
+    <div class="syntax-cell">삼각함수</div>
+    <div class="syntax-cell code">sin ^{2} theta + cos ^{2} theta</div>
+    <div class="syntax-cell render" id="s8"></div>
+  </div>
+</div>
+
+<script>
+// ── HWP → LaTeX 변환 ──
+function hwpToLatex(s) {
+  s = s.trim()
+  // {a} over {b} → \dfrac{a}{b}  (HWP 분수)
+  s = s.replace(/\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\s*over\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g, '\\dfrac{$1}{$2}')
+  // sqrt [n]{x} → \sqrt[n]{x}
+  s = s.replace(/sqrt\s*\[(\d+)\]\{/g, '\\sqrt[$1]{')
+  // sqrt {x} → \sqrt{x}
+  s = s.replace(/\bsqrt\s*\{/g, '\\sqrt{')
+  // left/right 괄호
+  s = s.replace(/left\s*\(/g, '\\left(').replace(/right\s*\)/g, '\\right)')
+  s = s.replace(/left\s*\[/g, '\\left[').replace(/right\s*\]/g, '\\right]')
+  s = s.replace(/left\s*\|/g, '\\left|').replace(/right\s*\|/g, '\\right|')
+  s = s.replace(/left\s*\{/g, '\\left\\{').replace(/right\s*\}/g, '\\right\\}')
+  // 화살표
+  s = s.replace(/->/g, '\\to')
+  // 관계
+  s = s.replace(/\ble\b/g, '\\leq').replace(/\bge\b/g, '\\geq').replace(/\bne\b/g, '\\neq')
+  s = s.replace(/\bapprox\b/g, '\\approx').replace(/\bpm\b/g, '\\pm').replace(/\+-/g, '\\pm')
+  s = s.replace(/\btimes\b/g, '\\times').replace(/\bcdot\b/g, '\\cdot').replace(/\bcdots\b/g, '\\cdots')
+  // 함수
+  s = s.replace(/\blim\b/g, '\\lim').replace(/\bsum\b/g, '\\sum').replace(/\bint\b/g, '\\int')
+  s = s.replace(/\bsqrt\b/g, '\\sqrt').replace(/\binfty\b/g, '\\infty').replace(/\binf\b/g, '\\infty')
+  s = s.replace(/\blog\b/g, '\\log').replace(/\bln\b/g, '\\ln')
+  s = s.replace(/\bsin\b/g, '\\sin').replace(/\bcos\b/g, '\\cos').replace(/\btan\b/g, '\\tan')
+  s = s.replace(/\bmax\b/g, '\\max').replace(/\bmin\b/g, '\\min')
+  s = s.replace(/\btherefore\b/g, '\\therefore').replace(/\bbecause\b/g, '\\because')
+  // 그리스
+  const greeks = ['alpha','beta','gamma','delta','epsilon','zeta','eta','theta','iota','kappa',
+    'lambda','mu','nu','xi','pi','rho','sigma','tau','upsilon','phi','chi','psi','omega',
+    'Gamma','Delta','Theta','Lambda','Xi','Pi','Sigma','Upsilon','Phi','Psi','Omega']
+  greeks.forEach(g => { s = s.replace(new RegExp('\\b'+g+'\\b','g'), '\\'+g) })
+  // 백틱(공백)
+  s = s.replace(/`/g, '\\,')
+  return s
+}
+
+// 텍스트를 [ 수식 ] 로 분리해서 렌더링
+function renderMixed(text) {
+  const lines = text.split('\n')
+  let html = ''
+  for (const line of lines) {
+    if (!line.trim()) { html += '<br>'; continue }
+
+    // 보기박스 마커
+    if (line.startsWith('===보기===')) {
+      html += '<div style="border:1.5px solid #555;border-radius:3px;padding:8px 12px;margin:6px 0;"><div style="font-size:11px;font-weight:700;color:#333;margin-bottom:4px;">보 기</div>'
+      continue
+    }
+    if (line === '===보기끝===') { html += '</div>'; continue }
+    if (line.startsWith('===조건===')) {
+      html += '<div style="border:1.5px solid #555;border-radius:3px;padding:8px 12px;margin:6px 0;"><div style="font-size:11px;font-weight:700;color:#333;margin-bottom:4px;">조 건</div>'
+      continue
+    }
+    if (line === '===조건끝===') { html += '</div>'; continue }
+
+    // 선지 (짧은: TAB 2번)
+    if (line.startsWith('===선지===')) {
+      const choices = line.replace('===선지===','').split('|')
+      const half = Math.ceil(choices.length/2)
+      const top = choices.slice(0, half)
+      const bot = choices.slice(half)
+      html += '<div style="margin-top:8px;font-size:13px;color:#111;">'
+      html += '<div style="display:flex;gap:0;">' + top.map(c => `<span style="min-width:110px;padding-right:8px;">${renderInline(c.trim())}</span>`).join('') + '</div>'
+      if (bot.length) html += '<div style="display:flex;gap:0;">' + bot.map(c => `<span style="min-width:110px;padding-right:8px;">${renderInline(c.trim())}</span>`).join('') + '</div>'
+      html += '</div>'
+      continue
+    }
+    // 선지 (긴: 한 줄씩)
+    if (line.startsWith('===선지긴===')) {
+      const choices = line.replace('===선지긴===','').split('|')
+      html += '<div style="margin-top:8px;font-size:13px;color:#111;line-height:2.2;">' + choices.map(c => `<div>${renderInline(c.trim())}</div>`).join('') + '</div>'
+      continue
+    }
+
+    html += '<div style="line-height:2;">' + renderInline(line) + '</div>'
+  }
+  return html
+}
+
+function renderInline(line) {
+  return line.replace(/\[([^\]]+)\]/g, (_, code) => {
+    try {
+      const latex = hwpToLatex(code)
+      return katex.renderToString(latex, { throwOnError: false, displayMode: false })
+    } catch { return `[${code}]` }
+  })
+}
+
+function renderPreview() {
+  const val = document.getElementById('editor').value
+  document.getElementById('preview-out').innerHTML = renderMixed(val)
+}
+
+// 팔레트 카테고리 전환
+function showCat(cat) {
+  document.querySelectorAll('.btn-cat').forEach(b => b.classList.remove('on'))
+  event.target.classList.add('on')
+  document.querySelectorAll('.pal-section').forEach(s => s.classList.remove('on'))
+  document.getElementById('pal-'+cat).classList.add('on')
+  document.getElementById('palette').classList.add('on')
+}
+
+// 수식 삽입
+function ins(code) {
+  const ta = document.getElementById('editor')
+  const s = ta.selectionStart, e = ta.selectionEnd
+  const cleaned = code.replace(/□/g, '')
+  ta.value = ta.value.slice(0,s) + '[' + cleaned + ']' + ta.value.slice(e)
+  ta.selectionStart = ta.selectionEnd = s + cleaned.length + 2
+  ta.focus()
+  renderPreview()
+}
+
+// 구조 삽입
+function insStruct(type) {
+  const ta = document.getElementById('editor')
+  const pos = ta.selectionEnd
+  let snippet = ''
+  if (type === '보기') snippet = '\n===보기===\nㄱ. \nㄴ. \nㄷ. \n===보기끝==='
+  if (type === '조건') snippet = '\n===조건===\n(가) \n(나) \n===조건끝==='
+  if (type === 'choice-short') snippet = '\n===선지===① 1|② 2|③ 3|④ 4|⑤ 5'
+  if (type === 'choice-long') snippet = '\n===선지긴===① \n|② \n|③ \n|④ \n|⑤ '
+  ta.value = ta.value.slice(0,pos) + snippet + ta.value.slice(pos)
+  ta.focus()
+  renderPreview()
+}
+
+// ── 샘플 문제 렌더링 ──
+const sampleText = `실수 전체의 집합에서 연속인 함수 f(x)가 다음 조건을 만족시킨다.
+===조건===
+(가) [x le 0]일 때, [f(x) = x ^{2} + ax + b]
+(나) [x > 0]일 때, [f(x) = {sin x} over {x}]
+===조건끝===
+[f(0)]의 값을 구하여라.
+===선지===① -2|② -1|③ 0|④ 1|⑤ 2`
+
+document.getElementById('sample-out').innerHTML = renderMixed(sampleText)
+renderPreview()
+
+// ── 문법 참고표 렌더 ──
+const samples = [
+  [1, '{a} over {b}'],
+  [2, 'sqrt {x+1}'],
+  [3, 'sqrt [3]{8}'],
+  [4, 'x ^{2} _{n}'],
+  [5, 'lim _{x -> 0} {sin x} over {x}'],
+  [6, 'sum _{k=1}^{n} k'],
+  [7, 'int _{0}^{1} x ^{2} dx'],
+  [8, 'sin ^{2} theta + cos ^{2} theta'],
+]
+samples.forEach(([n, code]) => {
+  try {
+    document.getElementById('s'+n).innerHTML = katex.renderToString(hwpToLatex(code), { throwOnError:false, displayMode:false })
+  } catch(e) { document.getElementById('s'+n).textContent = code }
+})
+</script>
+</body>
+</html>

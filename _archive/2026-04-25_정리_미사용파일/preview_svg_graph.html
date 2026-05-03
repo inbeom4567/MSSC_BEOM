@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SVG 그래프 스타일 프리뷰</title>
+  <style>
+    body { font-family: serif; background: #f5f5f5; display: flex; flex-direction: column; align-items: center; padding: 40px; gap: 48px; }
+    h1 { font-size: 18px; color: #333; margin-bottom: 0; }
+    .caption { font-size: 13px; color: #666; margin-top: 6px; }
+    .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 28px 36px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .rule-box { font-size: 12px; color: #555; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 12px 16px; max-width: 520px; line-height: 1.8; }
+    .rule-box b { color: #333; }
+  </style>
+</head>
+<body>
+
+<h1>수능/교과서 스타일 SVG 그래프 — 858개 실측 기반 규칙 적용</h1>
+
+<!-- 예시 1: 이차함수 -->
+<div class="card">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -30 320 300" width="320" height="300">
+    <!-- 좌표축 -->
+    <line x1="-10" y1="120" x2="270" y2="120" stroke="black" stroke-width="1.5"/>
+    <line x1="80" y1="265" x2="80" y2="-10" stroke="black" stroke-width="1.5"/>
+    <!-- 화살표: 길이 9px, 폭 5px, 채워진 검은 삼각형 -->
+    <polygon points="270,120 261,115 261,125" fill="black"/>
+    <polygon points="80,-10 75,0 85,0" fill="black"/>
+    <!-- 축 라벨 (화살표 끝 바깥, italic) -->
+    <text x="274" y="125" font-size="14" font-style="italic" font-family="serif">x</text>
+    <text x="68" y="-14" font-size="14" font-style="italic" font-family="serif">y</text>
+    <!-- 원점 O: 교차점 왼쪽 아래, 로마체 -->
+    <text x="63" y="136" font-size="12" font-family="serif">O</text>
+    <!-- 수치 라벨: 눈금선 없음, 숫자만 축 바깥 -->
+    <text x="114" y="136" font-size="12" font-family="serif">1</text>
+    <text x="194" y="136" font-size="12" font-family="serif">3</text>
+    <text x="152" y="136" font-size="12" font-family="serif">2</text>
+    <text x="56" y="4"   font-size="12" font-family="serif">3</text>
+    <!-- 이차함수 곡선 y=(x-2)²-1, 검은 실선 stroke-width="1.8" -->
+    <path d="M 20,80 C 40,95 60,108 80,120 C 95,130 110,138 120,140 C 135,143 150,157 160,160 C 170,163 185,157 200,150 C 210,145 230,130 240,120 C 250,112 255,108 260,104"
+          stroke="black" stroke-width="1.8" fill="none"/>
+    <!-- 꼭짓점 (2,-1) = SVG(160,160) — 채워진 점 -->
+    <circle cx="160" cy="160" r="3" fill="black"/>
+    <text x="164" y="176" font-size="12" font-family="serif">(2, -1)</text>
+    <!-- x절편 — 채워진 점 -->
+    <circle cx="120" cy="120" r="3" fill="black"/>
+    <circle cx="200" cy="120" r="3" fill="black"/>
+    <!-- y절편 — 채워진 점 -->
+    <circle cx="80" cy="0" r="3" fill="black"/>
+    <!-- 함수 라벨: 곡선 오른쪽 상단 -->
+    <text x="242" y="96" font-size="13" font-style="italic" font-family="serif">y=x²-4x+3</text>
+  </svg>
+  <p class="caption">① 이차함수 — 채워진 점, 숫자 라벨, 화살표</p>
+</div>
+
+<!-- 예시 2: 유리함수 + 점근선 + 열린 점 -->
+<div class="card">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -30 340 320" width="340" height="320">
+    <!-- 점근선: 회색 점선 -->
+    <line x1="140" y1="-20" x2="140" y2="285" stroke="#888" stroke-width="1" stroke-dasharray="4,3"/>
+    <line x1="-20" y1="125" x2="305" y2="125" stroke="#888" stroke-width="1" stroke-dasharray="4,3"/>
+    <!-- 점근선 라벨 -->
+    <text x="143" y="-12" font-size="11" font-family="serif" fill="#888">x=1</text>
+    <text x="307" y="129" font-size="11" font-family="serif" fill="#888">y=2</text>
+    <!-- 좌표축 -->
+    <line x1="-10" y1="125" x2="295" y2="125" stroke="black" stroke-width="1.5"/>
+    <line x1="80" y1="280" x2="80" y2="-10" stroke="black" stroke-width="1.5"/>
+    <!-- 화살표 -->
+    <polygon points="295,125 286,120 286,130" fill="black"/>
+    <polygon points="80,-10 75,0 85,0" fill="black"/>
+    <!-- 축 라벨 -->
+    <text x="298" y="130" font-size="14" font-style="italic" font-family="serif">x</text>
+    <text x="68" y="-14" font-size="14" font-style="italic" font-family="serif">y</text>
+    <text x="63" y="140" font-size="12" font-family="serif">O</text>
+    <!-- 수치 라벨 -->
+    <text x="133" y="140" font-size="12" font-family="serif">1</text>
+    <text x="68" y="130" font-size="12" font-family="serif">2</text>
+    <!-- 유리함수 y = 1/(x-1) + 2 — 왼쪽 가지 -->
+    <path d="M -15,100 C 10,106 30,110 50,113 C 65,115 80,117 100,119 C 115,121 125,122.5 133,124"
+          stroke="black" stroke-width="1.8" fill="none"/>
+    <!-- 유리함수 — 오른쪽 가지 -->
+    <path d="M 147,126 C 155,128 165,131 180,135 C 200,141 220,147 240,152 C 260,157 280,161 300,163"
+          stroke="black" stroke-width="1.8" fill="none"/>
+    <!-- x=0일 때 y=1 = SVG(80,205) — 채워진 점 -->
+    <circle cx="80" cy="205" r="3" fill="black"/>
+    <text x="56" y="209" font-size="12" font-family="serif">-1</text>
+    <!-- 함수 라벨 -->
+    <text x="248" y="146" font-size="13" font-style="italic" font-family="serif">y=1/(x-1)+2</text>
+    <!-- 열린 점 예시 (미포함 경계) -->
+    <circle cx="80" cy="85" r="3" fill="white" stroke="black" stroke-width="1.5"/>
+    <text x="56" y="88" font-size="11" font-family="serif" fill="#555">열린 점</text>
+  </svg>
+  <p class="caption">② 유리함수 — 회색 점근선, 채워진 점 / 열린 점</p>
+</div>
+
+<!-- 예시 3: 삼각함수 + 음영 -->
+<div class="card">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="-30 -30 360 280" width="360" height="280">
+    <!-- 좌표축 -->
+    <line x1="-10" y1="110" x2="315" y2="110" stroke="black" stroke-width="1.5"/>
+    <line x1="60" y1="245" x2="60" y2="-10" stroke="black" stroke-width="1.5"/>
+    <!-- 화살표 -->
+    <polygon points="315,110 306,105 306,115" fill="black"/>
+    <polygon points="60,-10 55,0 65,0" fill="black"/>
+    <!-- 축 라벨 -->
+    <text x="318" y="115" font-size="14" font-style="italic" font-family="serif">x</text>
+    <text x="48" y="-14" font-size="14" font-style="italic" font-family="serif">y</text>
+    <text x="44" y="126" font-size="12" font-family="serif">O</text>
+    <!-- 수치 라벨 -->
+    <text x="116" y="126" font-size="12" font-family="serif">π/2</text>
+    <text x="173" y="126" font-size="12" font-family="serif">π</text>
+    <text x="228" y="126" font-size="12" font-family="serif">3π/2</text>
+    <text x="48"  y="55"  font-size="12" font-family="serif">1</text>
+    <text x="44"  y="170" font-size="12" font-family="serif">-1</text>
+    <!-- 음영 (0 ~ π/2 구간, 연한 회색) -->
+    <path d="M 60,110 C 75,80 100,30 120,10 C 130,0 135,-5 140,0 C 145,5 150,18 160,50 C 170,80 175,100 180,110 Z"
+          fill="rgba(0,0,0,0.07)"/>
+    <!-- sin 곡선: stroke-width="1.8" -->
+    <path d="M 60,110 C 75,80 100,30 120,10 C 130,0 135,-5 140,0 C 145,5 150,18 160,50 C 170,80 175,100 180,110
+             C 195,140 210,175 230,200 C 240,210 245,215 250,210 C 255,205 260,192 270,165 C 280,135 285,115 300,110"
+          stroke="black" stroke-width="1.8" fill="none"/>
+    <!-- 보조 수평선 y=1 — 회색 실선 -->
+    <line x1="-10" y1="10" x2="315" y2="10" stroke="#aaa" stroke-width="1" stroke-dasharray="3,3"/>
+    <!-- 키 포인트 -->
+    <circle cx="60"  cy="110" r="3" fill="black"/>
+    <circle cx="140" cy="10"  r="3" fill="black"/>
+    <circle cx="180" cy="110" r="3" fill="black"/>
+    <circle cx="250" cy="210" r="3" fill="black"/>
+    <circle cx="300" cy="110" r="3" fill="black"/>
+    <!-- 함수 라벨: 오른쪽 상단 -->
+    <text x="200" y="88" font-size="13" font-style="italic" font-family="serif">y=sin x</text>
+    <!-- 음영 설명 -->
+    <text x="72" y="85" font-size="10" font-family="serif" fill="#888">음영 구간</text>
+  </svg>
+  <p class="caption">③ 삼각함수 — 음영(rgba 0.07), 회색 보조선, 포인트 마킹</p>
+</div>
+
+<div class="rule-box">
+  <b>적용된 규칙 (858개 그래프 실측)</b><br>
+  • 화살표: 채워진 검은 삼각형, 길이 9px / 폭 5px<br>
+  • 눈금: 눈금선 없음 — 숫자 라벨만 축 바깥<br>
+  • 원점 O: 교차점 왼쪽 아래, 로마체 12px<br>
+  • 곡선: stroke="black" stroke-width="1.8", fill="none"<br>
+  • 점근선: stroke="#888" stroke-dasharray="4,3"<br>
+  • 채워진 점: r=3 fill="black" / 열린 점: r=3 fill="white" stroke="black"<br>
+  • 함수 라벨: 곡선 오른쪽 상단, italic serif<br>
+  • 음영: fill="rgba(0,0,0,0.07)" — 연한 회색<br>
+  • 비율: 가로:세로 ≈ 1.2-1.5:1, 여백 20-30px
+</div>
+
+</body>
+</html>

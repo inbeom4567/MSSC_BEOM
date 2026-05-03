@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>스캔 UI 미리보기 v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #09090b; color: #f7f8f8; min-height: 100vh; }
+
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid rgba(255,255,255,0.06); padding: 0 20px; }
+  .tab { padding: 12px 16px; font-size: 13px; color: #8a8f98; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; }
+  .tab.active { color: #818cf8; border-bottom-color: #818cf8; font-weight: 600; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── 업로드 ── */
+  .upload-zone { border: 2px dashed rgba(255,255,255,0.12); border-radius: 16px; padding: 48px 24px; text-align: center; cursor: pointer; transition: all .2s; }
+  .upload-zone:hover { border-color: #818cf8; background: rgba(129,140,248,0.05); }
+  .upload-icon { font-size: 40px; margin-bottom: 12px; }
+  .upload-text { font-size: 14px; color: #8a8f98; }
+  .upload-sub { font-size: 12px; color: #4a4a52; margin-top: 6px; }
+  .btn-primary { width: 100%; margin-top: 16px; padding: 14px; border-radius: 12px; background: linear-gradient(to right, #0ea5e9, #2563eb); color: white; font-weight: 600; font-size: 14px; border: none; cursor: pointer; }
+
+  /* ── 검토 화면 헤더 ── */
+  .review-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+  .review-counter { font-size: 12px; color: #8a8f98; margin-bottom: 2px; }
+  .review-title { font-size: 16px; font-weight: 700; }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .nav-buttons { display: flex; gap: 8px; }
+  .btn-nav { padding: 9px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: #141516; color: #8a8f98; font-size: 13px; cursor: pointer; transition: all .15s; }
+  .btn-nav:hover:not(:disabled) { background: #1e2024; color: #f7f8f8; }
+  .btn-nav:disabled { opacity: 0.3; cursor: default; }
+  .select-all-row { display: flex; gap: 8px; }
+  .btn-select-all { padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.08); background: transparent; font-size: 11px; cursor: pointer; transition: all .15s; }
+  .btn-select-all.include { color: #4ade80; border-color: rgba(74,222,128,0.3); }
+  .btn-select-all.include:hover { background: rgba(74,222,128,0.08); }
+  .btn-select-all.exclude { color: #f87171; border-color: rgba(248,113,113,0.3); }
+  .btn-select-all.exclude:hover { background: rgba(248,113,113,0.08); }
+
+  /* 진행 도트 */
+  .progress-strip { display: flex; gap: 4px; margin-bottom: 16px; }
+  .progress-dot { flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.07); transition: all .25s; cursor: pointer; }
+  .progress-dot:hover { opacity: 0.8; }
+  .progress-dot.done-in { background: #22c55e; }
+  .progress-dot.done-out { background: rgba(239,68,68,0.4); }
+  .progress-dot.current { background: #0ea5e9; }
+
+  /* 레이아웃 */
+  .review-layout { display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: start; }
+
+  /* 썸네일 */
+  .thumb-panel { background: #0f1011; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px; }
+  .thumb-label { font-size: 11px; color: #4a4a52; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .06em; }
+  .thumb-img { position: relative; width: 100%; aspect-ratio: 0.72; background: #1a1a1e; border-radius: 8px; overflow: hidden; }
+  .thumb-page { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 6px; }
+  .tl { height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; }
+  .tl.w90 { width: 90%; } .tl.w70 { width: 70%; } .tl.w55 { width: 55%; } .tl.w80 { width: 80%; }
+  .thumb-highlight { position: absolute; border: 2px solid #0ea5e9; background: rgba(14,165,233,0.13); border-radius: 3px; transition: all .3s; }
+  .thumb-caption { font-size: 10px; color: #4a4a52; text-align: center; margin-top: 6px; }
+
+  /* 크롭 패널 */
+  .crop-panel { background: #0f1011; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; overflow: hidden; }
+  .crop-header { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; }
+  .crop-header-left { font-size: 11px; color: #4a4a52; text-transform: uppercase; letter-spacing: .06em; }
+  .crop-header-right { font-size: 11px; color: #4a4a52; }
+  .crop-canvas { position: relative; background: #13131a; }
+  .crop-img-mock { width: 100%; aspect-ratio: 3.2; display: flex; flex-direction: column; justify-content: center; gap: 9px; padding: 24px 28px; }
+  .cl { height: 5px; background: rgba(255,255,255,0.11); border-radius: 3px; }
+  .cl.l1{width:82%;} .cl.l2{width:60%;} .cl.l3{width:76%;} .cl.l4{width:44%;}
+  .crop-overlay { position: absolute; inset: 10px; border: 2px solid #38bdf8; border-radius: 3px; }
+  .handle { position: absolute; width: 9px; height: 9px; background: #38bdf8; border-radius: 2px; }
+  .handle.tl{top:-4px;left:-4px;cursor:nw-resize;}
+  .handle.tm{top:-4px;left:calc(50% - 4px);cursor:n-resize;}
+  .handle.tr{top:-4px;right:-4px;cursor:ne-resize;}
+  .handle.ml{top:calc(50% - 4px);left:-4px;cursor:w-resize;}
+  .handle.mr{top:calc(50% - 4px);right:-4px;cursor:e-resize;}
+  .handle.bl{bottom:-4px;left:-4px;cursor:sw-resize;}
+  .handle.bm{bottom:-4px;left:calc(50% - 4px);cursor:s-resize;}
+  .handle.br{bottom:-4px;right:-4px;cursor:se-resize;}
+
+  /* 포함/제외 */
+  .include-bar { padding: 13px 14px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: space-between; }
+  .include-label { font-size: 13px; color: #8a8f98; }
+  .toggle-group { display: flex; gap: 8px; }
+  .btn-toggle { padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1.5px solid; cursor: pointer; transition: all .15s; }
+  .btn-toggle.yes { border-color: rgba(74,222,128,0.3); background: transparent; color: #4a4a52; }
+  .btn-toggle.yes.on { border-color: #22c55e; background: rgba(34,197,94,0.15); color: #4ade80; }
+  .btn-toggle.no { border-color: rgba(255,255,255,0.07); background: transparent; color: #4a4a52; }
+  .btn-toggle.no.on { border-color: #ef4444; background: rgba(239,68,68,0.12); color: #f87171; }
+
+  /* 하단 */
+  .finish-row { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .finish-summary { font-size: 13px; color: #8a8f98; }
+  .finish-summary span { color: #4ade80; font-weight: 700; }
+  .btn-finish { padding: 13px 28px; border-radius: 12px; background: linear-gradient(to right, #0ea5e9, #2563eb); color: white; font-weight: 700; font-size: 14px; border: none; cursor: pointer; }
+  .btn-finish:disabled { opacity: 0.3; cursor: default; }
+
+  /* ── 결과 화면 ── */
+  .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .result-header-left { display: flex; align-items: center; gap: 12px; }
+  .btn-back { font-size: 13px; color: #8a8f98; background: none; border: none; cursor: pointer; padding: 6px 0; }
+  .btn-back:hover { color: #f7f8f8; }
+  .result-title { font-weight: 700; font-size: 15px; }
+  .result-card { background: #0f1011; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; margin-bottom: 12px; overflow: hidden; transition: all .2s; }
+  .result-card.excluded { opacity: 0.35; }
+  .result-card-header { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .result-card-label { font-size: 13px; font-weight: 600; color: #d0d0d5; }
+  .result-card-actions { display: flex; gap: 8px; align-items: center; }
+  .btn-edit { padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: #8a8f98; font-size: 12px; cursor: pointer; transition: all .15s; }
+  .btn-edit:hover { background: #1a1a1e; color: #f7f8f8; }
+  .btn-edit.active { border-color: #f59e0b; color: #fbbf24; background: rgba(245,158,11,0.08); }
+  .excluded-badge { font-size: 11px; color: #f87171; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); padding: 2px 8px; border-radius: 4px; }
+  .result-body { padding: 14px 16px; }
+  .result-text { font-size: 13px; color: #d0d0d5; line-height: 1.75; font-family: 'Courier New', monospace; background: #141516; padding: 12px 14px; border-radius: 8px; white-space: pre-line; }
+  .result-textarea { width: 100%; font-size: 13px; color: #f7f8f8; line-height: 1.75; font-family: 'Courier New', monospace; background: #1a1a1e; padding: 12px 14px; border-radius: 8px; border: 1.5px solid #f59e0b; outline: none; resize: vertical; min-height: 80px; }
+  .edit-actions { margin-top: 8px; display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-save { padding: 6px 16px; border-radius: 6px; background: #f59e0b; color: #000; font-size: 12px; font-weight: 700; border: none; cursor: pointer; }
+  .btn-cancel { padding: 6px 16px; border-radius: 6px; background: transparent; color: #8a8f98; font-size: 12px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+
+  .btn-download { width: 100%; margin-top: 8px; padding: 14px; border-radius: 12px; background: linear-gradient(to right, #f59e0b, #ef4444); color: white; font-weight: 700; font-size: 14px; border: none; cursor: pointer; }
+
+  /* 데모 버튼 */
+  .demo-nav { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 6px; z-index: 100; }
+  .demo-btn { padding: 7px 13px; border-radius: 8px; background: #1e2024; border: 1px solid rgba(255,255,255,0.1); color: #8a8f98; font-size: 11px; cursor: pointer; text-align: right; }
+  .demo-btn:hover { color: #f7f8f8; }
+  .demo-label { font-size: 10px; color: #4a4a52; text-align: right; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab">유사문항 생성</div>
+  <div class="tab active">스캔 처리</div>
+  <div class="tab">히스토리</div>
+  <div class="tab">사용설명서</div>
+</div>
+
+<div class="container">
+
+  <!-- ① 업로드 -->
+  <div class="screen active" id="screen-upload">
+    <div class="upload-zone" onclick="goTo('screen-review'); resetReview()">
+      <div class="upload-icon">📷</div>
+      <div class="upload-text">클릭하거나 이미지/PDF를 드래그하세요</div>
+      <div class="upload-sub">붙여넣기(Ctrl+V)도 가능 · JPG, PNG, PDF</div>
+    </div>
+    <button class="btn-primary" onclick="goTo('screen-review'); resetReview()">✦ 분석 시작 (데모: 5문제 감지됨)</button>
+  </div>
+
+  <!-- ② 문제 검토 -->
+  <div class="screen" id="screen-review">
+
+    <div class="review-header">
+      <div>
+        <div class="review-counter" id="counter-text">문제 1 / 5</div>
+        <div class="review-title">문제 영역 확인 · 미세 조정</div>
+      </div>
+      <div class="header-right">
+        <div class="nav-buttons">
+          <button class="btn-nav" id="btn-prev" onclick="prevP()" disabled>◀ 이전</button>
+          <button class="btn-nav" id="btn-next" onclick="nextP()">다음 ▶</button>
+        </div>
+        <div class="select-all-row">
+          <button class="btn-select-all include" onclick="setAll(true)">✓ 전체 포함</button>
+          <button class="btn-select-all exclude" onclick="setAll(false)">✗ 전체 제외</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 진행 도트 (클릭 가능) -->
+    <div class="progress-strip" id="progress-strip">
+      <div class="progress-dot current" id="dot-0" onclick="jumpTo(0)" title="1번"></div>
+      <div class="progress-dot" id="dot-1" onclick="jumpTo(1)" title="2번"></div>
+      <div class="progress-dot" id="dot-2" onclick="jumpTo(2)" title="3번"></div>
+      <div class="progress-dot" id="dot-3" onclick="jumpTo(3)" title="4번"></div>
+      <div class="progress-dot" id="dot-4" onclick="jumpTo(4)" title="5번"></div>
+    </div>
+
+    <div class="review-layout">
+      <!-- 썸네일 -->
+      <div class="thumb-panel">
+        <div class="thumb-label">전체 페이지</div>
+        <div class="thumb-img">
+          <div class="thumb-page">
+            <div class="tl w90"></div><div class="tl w70"></div><div class="tl w55"></div>
+            <div class="tl w80" style="margin-top:5px"></div><div class="tl w70"></div><div class="tl w90"></div>
+            <div class="tl w55" style="margin-top:5px"></div><div class="tl w80"></div><div class="tl w70"></div>
+            <div class="tl w90" style="margin-top:5px"></div><div class="tl w55"></div><div class="tl w70"></div>
+            <div class="tl w80" style="margin-top:5px"></div><div class="tl w90"></div><div class="tl w55"></div>
+            <div class="tl w70" style="margin-top:5px"></div><div class="tl w80"></div><div class="tl w55"></div>
+          </div>
+          <div class="thumb-highlight" id="thumb-hl"></div>
+        </div>
+        <div class="thumb-caption">파란 박스 = 현재 문제<br>도트 클릭으로 이동</div>
+      </div>
+
+      <!-- 확대 크롭 -->
+      <div class="crop-panel">
+        <div class="crop-header">
+          <div class="crop-header-left">확대 보기 — 드래그로 범위 조정</div>
+          <div class="crop-header-right">모서리/가장자리 핸들 드래그</div>
+        </div>
+        <div class="crop-canvas">
+          <div class="crop-img-mock">
+            <div class="cl l1"></div><div class="cl l2"></div>
+            <div class="cl l3"></div><div class="cl l4"></div>
+          </div>
+          <div class="crop-overlay">
+            <div class="handle tl"></div><div class="handle tm"></div><div class="handle tr"></div>
+            <div class="handle ml"></div><div class="handle mr"></div>
+            <div class="handle bl"></div><div class="handle bm"></div><div class="handle br"></div>
+          </div>
+        </div>
+        <div class="include-bar">
+          <div class="include-label">이 문제를 한글 파일에 포함</div>
+          <div class="toggle-group">
+            <button class="btn-toggle yes on" id="btn-yes" onclick="setInclude(true)">✓ 포함</button>
+            <button class="btn-toggle no" id="btn-no" onclick="setInclude(false)">✗ 제외</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="finish-row">
+      <div class="finish-summary">총 5문제 중 <span id="include-count">5</span>문제 포함</div>
+      <button class="btn-finish" id="btn-finish" onclick="goTo('screen-result')">✦ 한글 파일 만들기</button>
+    </div>
+  </div>
+
+  <!-- ③ 결과 -->
+  <div class="screen" id="screen-result">
+    <div class="result-header">
+      <div class="result-header-left">
+        <button class="btn-back" onclick="goTo('screen-review')">← 다시 검토</button>
+        <div class="result-title">처리 완료</div>
+      </div>
+      <button class="btn-back" onclick="goTo('screen-upload')" style="font-size:12px; border:1px solid rgba(255,255,255,0.08); padding:6px 12px; border-radius:8px;">처음부터</button>
+    </div>
+
+    <!-- 1번 -->
+    <div class="result-card" id="card-1">
+      <div class="result-card-header">
+        <div class="result-card-label">1번 문제</div>
+        <div class="result-card-actions">
+          <button class="btn-edit" onclick="toggleEdit(1)">✎ 수정</button>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="result-text" id="text-1">실수 전체의 집합에서 정의된 함수
+f(x) = x² - 2x  (x &lt; 1)
+         ax + b    (x ≥ 1)
+가 실수 전체에서 연속일 때, a + b의 값은?</div>
+        <textarea class="result-textarea" id="edit-1" style="display:none">실수 전체의 집합에서 정의된 함수
+f(x) = x² - 2x  (x < 1)
+         ax + b    (x ≥ 1)
+가 실수 전체에서 연속일 때, a + b의 값은?</textarea>
+        <div class="edit-actions" id="edit-actions-1" style="display:none">
+          <button class="btn-cancel" onclick="cancelEdit(1)">취소</button>
+          <button class="btn-save" onclick="saveEdit(1)">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2번 -->
+    <div class="result-card" id="card-2">
+      <div class="result-card-header">
+        <div class="result-card-label">2번 문제</div>
+        <div class="result-card-actions">
+          <button class="btn-edit" onclick="toggleEdit(2)">✎ 수정</button>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="result-text" id="text-2">lim(x→2) (x² - 4) / (x - 2) 의 값을 구하여라.</div>
+        <textarea class="result-textarea" id="edit-2" style="display:none">lim(x→2) (x² - 4) / (x - 2) 의 값을 구하여라.</textarea>
+        <div class="edit-actions" id="edit-actions-2" style="display:none">
+          <button class="btn-cancel" onclick="cancelEdit(2)">취소</button>
+          <button class="btn-save" onclick="saveEdit(2)">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3번 (제외) -->
+    <div class="result-card excluded" id="card-3">
+      <div class="result-card-header">
+        <div class="result-card-label">3번 문제</div>
+        <div class="result-card-actions">
+          <span class="excluded-badge">제외됨</span>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="result-text" style="color:#4a4a52; text-decoration:line-through">함수 y = sin(2x + π/3)의 최솟값을 구하여라.</div>
+      </div>
+    </div>
+
+    <!-- 4번 -->
+    <div class="result-card" id="card-4">
+      <div class="result-card-header">
+        <div class="result-card-label">4번 문제</div>
+        <div class="result-card-actions">
+          <button class="btn-edit" onclick="toggleEdit(4)">✎ 수정</button>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="result-text" id="text-4">log₂(x-1) + log₂(x+3) = 3 을 만족하는 x의 값은?</div>
+        <textarea class="result-textarea" id="edit-4" style="display:none">log₂(x-1) + log₂(x+3) = 3 을 만족하는 x의 값은?</textarea>
+        <div class="edit-actions" id="edit-actions-4" style="display:none">
+          <button class="btn-cancel" onclick="cancelEdit(4)">취소</button>
+          <button class="btn-save" onclick="saveEdit(4)">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5번 -->
+    <div class="result-card" id="card-5">
+      <div class="result-card-header">
+        <div class="result-card-label">5번 문제</div>
+        <div class="result-card-actions">
+          <button class="btn-edit" onclick="toggleEdit(5)">✎ 수정</button>
+        </div>
+      </div>
+      <div class="result-body">
+        <div class="result-text" id="text-5">등차수열 {aₙ}에서 a₃ = 7, a₇ = 19일 때, a₁₀의 값은?</div>
+        <textarea class="result-textarea" id="edit-5" style="display:none">등차수열 {aₙ}에서 a₃ = 7, a₇ = 19일 때, a₁₀의 값은?</textarea>
+        <div class="edit-actions" id="edit-actions-5" style="display:none">
+          <button class="btn-cancel" onclick="cancelEdit(5)">취소</button>
+          <button class="btn-save" onclick="saveEdit(5)">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-download">📥 한글 파일(.hwpx) 다운로드</button>
+  </div>
+
+</div>
+
+<!-- 데모 네비게이션 -->
+<div class="demo-nav">
+  <div class="demo-label">화면 전환 (데모)</div>
+  <button class="demo-btn" onclick="goTo('screen-upload')">① 업로드</button>
+  <button class="demo-btn" onclick="goTo('screen-review')">② 문제 검토</button>
+  <button class="demo-btn" onclick="goTo('screen-result')">③ 결과 · 수정</button>
+</div>
+
+<script>
+const problems = [
+  { top:'3%',  height:'17%' },
+  { top:'22%', height:'15%' },
+  { top:'39%', height:'19%' },
+  { top:'60%', height:'14%' },
+  { top:'76%', height:'16%' },
+]
+let cur = 0
+const included = [true, true, false, true, true]  // 3번 기본 제외 (데모)
+
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  document.getElementById(id).classList.add('active')
+  if (id === 'screen-review') render()
+}
+function resetReview() { cur = 0; render() }
+
+function render() {
+  document.getElementById('counter-text').textContent = `문제 ${cur + 1} / ${problems.length}`
+  document.getElementById('btn-prev').disabled = cur === 0
+  document.getElementById('btn-next').disabled = cur === problems.length - 1
+
+  // 썸네일 하이라이트
+  const hl = document.getElementById('thumb-hl')
+  const p = problems[cur]
+  hl.style.top = p.top; hl.style.height = p.height
+  hl.style.left = '4%'; hl.style.width = '92%'
+
+  // 도트
+  for (let i = 0; i < problems.length; i++) {
+    const d = document.getElementById(`dot-${i}`)
+    d.className = 'progress-dot'
+    if (i === cur) d.classList.add('current')
+    else if (included[i]) d.classList.add('done-in')
+    else d.classList.add('done-out')
+  }
+
+  // 포함/제외 버튼
+  document.getElementById('btn-yes').className = 'btn-toggle yes' + (included[cur] ? ' on' : '')
+  document.getElementById('btn-no').className  = 'btn-toggle no'  + (!included[cur] ? ' on' : '')
+
+  // 포함 카운트
+  document.getElementById('include-count').textContent = included.filter(Boolean).length
+
+  // 처리 시작 버튼 활성화
+  document.getElementById('btn-finish').disabled = included.filter(Boolean).length === 0
+}
+
+function nextP() { if (cur < problems.length - 1) { cur++; render() } }
+function prevP() { if (cur > 0) { cur--; render() } }
+function jumpTo(i) { cur = i; render() }
+
+function setInclude(v) { included[cur] = v; render() }
+function setAll(v) { for (let i = 0; i < included.length; i++) included[i] = v; render() }
+
+// 결과 수정
+function toggleEdit(n) {
+  const text = document.getElementById(`text-${n}`)
+  const edit = document.getElementById(`edit-${n}`)
+  const actions = document.getElementById(`edit-actions-${n}`)
+  const btn = document.querySelector(`#card-${n} .btn-edit`)
+  const isOpen = edit.style.display !== 'none'
+  if (isOpen) {
+    cancelEdit(n)
+  } else {
+    edit.value = text.textContent.trim()
+    text.style.display = 'none'
+    edit.style.display = 'block'
+    actions.style.display = 'flex'
+    btn.classList.add('active')
+    btn.textContent = '✕ 닫기'
+    edit.focus()
+  }
+}
+function saveEdit(n) {
+  const text = document.getElementById(`text-${n}`)
+  const edit = document.getElementById(`edit-${n}`)
+  const actions = document.getElementById(`edit-actions-${n}`)
+  const btn = document.querySelector(`#card-${n} .btn-edit`)
+  text.textContent = edit.value
+  text.style.display = 'block'
+  edit.style.display = 'none'
+  actions.style.display = 'none'
+  btn.classList.remove('active')
+  btn.textContent = '✎ 수정'
+}
+function cancelEdit(n) {
+  const text = document.getElementById(`text-${n}`)
+  const edit = document.getElementById(`edit-${n}`)
+  const actions = document.getElementById(`edit-actions-${n}`)
+  const btn = document.querySelector(`#card-${n} .btn-edit`)
+  text.style.display = 'block'
+  edit.style.display = 'none'
+  actions.style.display = 'none'
+  btn.classList.remove('active')
+  btn.textContent = '✎ 수정'
+}
+
+// 키보드 화살표
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('screen-review').classList.contains('active')) return
+  if (e.key === 'ArrowRight') nextP()
+  if (e.key === 'ArrowLeft') prevP()
+})
+</script>
+</body>
+</html>

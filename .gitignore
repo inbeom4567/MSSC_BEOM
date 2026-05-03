@@ -9,3 +9,22 @@ docs/.bkit-memory.json
 backend/history/
 .gstack/
 .worktrees/
+
+# uvicorn 실행 로그 (Docker / 베어메탈 둘 다)
+backend/uvicorn.log
+backend/uvicorn.err.log
+
+# Claude Code 스케줄러 lock
+.claude/scheduled_tasks.lock
+
+# 개발 중 임시 출력 (c:/tmp/* 외부 경로 안전망)
+c:/tmp/
+
+# 대용량 참고 자산 — 운영에 직접 사용 안 함, 원본은 별도 보관
+book/
+font/
+SVG/
+imagesample/
+
+# Claude Code skill plugin 저장소
+.superpowers/
