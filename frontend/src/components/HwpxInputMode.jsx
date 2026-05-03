@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import LatexRenderer from './LatexRenderer'
 import UsageInfo from './UsageInfo'
 
@@ -73,6 +73,14 @@ export default function HwpxInputMode({ grade, model, guidelines, hwpConverterAv
 
   const [refineText, setRefineText] = useState('')
   const [isRefining, setIsRefining] = useState(false)
+
+  const [elapsedSec, setElapsedSec] = useState(0)
+  useEffect(() => {
+    if (!isLoading) { setElapsedSec(0); return }
+    const start = Date.now()
+    const t = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 200)
+    return () => clearInterval(t)
+  }, [isLoading])
 
   const analyzeFile = async (f) => {
     setIsAnalyzing(true); setError(null)
@@ -220,8 +228,8 @@ export default function HwpxInputMode({ grade, model, guidelines, hwpConverterAv
         </label>
       </div>
 
-      {/* 문제 선택 */}
-      {problems && problems.length > 0 && (
+      {/* 문제 선택 — 생성 중/결과 나온 후엔 숨김 */}
+      {problems && problems.length > 0 && !isLoading && !batchResults && (
         <div className="p-4 bg-white dark:bg-[#0f1011] rounded-xl border border-gray-200 dark:border-[rgba(255,255,255,0.06)] shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-gray-800 dark:text-[#f7f8f8]">문제 선택 ({selectedNumbers.size}/{problems.length})</h3>
@@ -248,8 +256,8 @@ export default function HwpxInputMode({ grade, model, guidelines, hwpConverterAv
         </div>
       )}
 
-      {/* 옵션 */}
-      {problems && selectedNumbers.size > 0 && (
+      {/* 옵션 — 생성 중/결과 나온 후엔 숨김 */}
+      {problems && selectedNumbers.size > 0 && !isLoading && !batchResults && (
         <div className="p-4 bg-indigo-50 dark:bg-indigo-500/5 rounded-xl border border-indigo-200 dark:border-indigo-500/20 space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs font-semibold text-gray-500 dark:text-[#8a8f98] uppercase tracking-wide">변형 유형</span>
@@ -293,10 +301,29 @@ export default function HwpxInputMode({ grade, model, guidelines, hwpConverterAv
         </div>
       )}
 
+      {/* 생성 중 전용 화면 — 옵션·문제선택 카드를 대체 */}
       {isLoading && (
-        <div className="text-center py-6">
-          <div className="inline-block w-8 h-8 border-[3px] border-indigo-200 dark:border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-          <p className="text-gray-400 dark:text-[#8a8f98] text-sm mt-3">{selectedNumbers.size}개 문제 유사문항 생성 중...</p>
+        <div className="p-8 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-500/10 dark:to-violet-500/10 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-center space-y-5">
+          <div className="inline-block w-14 h-14 border-[4px] border-indigo-200 dark:border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+          <div>
+            <h3 className="text-xl font-bold text-gray-800 dark:text-[#f7f8f8]">✦ 유사문항 생성 중</h3>
+            <p className="text-sm text-gray-600 dark:text-[#8a8f98] mt-2">
+              <span className="font-semibold">{selectedNumbers.size}개 문제</span>를{' '}
+              <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-500/20 rounded text-indigo-700 dark:text-indigo-300 text-xs font-medium mx-1">
+                {TYPES.find(t => t.value === variantType)?.label || '변형'}
+              </span>
+              <span className="px-2 py-0.5 bg-violet-100 dark:bg-violet-500/20 rounded text-violet-700 dark:text-violet-300 text-xs font-medium mx-1">
+                {DIFFS.find(d => d.value === difficulty)?.label || ''}
+              </span>
+              로 생성 중이에요
+            </p>
+            <p className="text-xs text-gray-500 dark:text-[#8a8f98] mt-3 font-mono">
+              경과 {elapsedSec}초 · 평균 1문제당 20~40초
+            </p>
+          </div>
+          <p className="text-xs text-gray-400 dark:text-[#4a4a52]">
+            Claude가 작업 중이에요. 페이지 새로고침하지 마세요 🙏
+          </p>
         </div>
       )}
 

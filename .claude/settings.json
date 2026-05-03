@@ -26,7 +26,14 @@
       "Bash(wsl -e sh -c \"fuser -k 8001/tcp 2>/dev/null && echo killed || echo not_found\")",
       "Bash(wsl -e sh -c \"ss -tlnp 2>/dev/null | grep 8001 || netstat -tlnp 2>/dev/null | grep 8001\")",
       "Bash(wsl -e sh -c \"kill -9 12 2>/dev/null && echo killed || echo failed\")",
-      "Bash(wsl -e sh -c \"ss -tlnp 2>/dev/null | grep 8001 || echo 'port 8001 free'\")"
+      "Bash(wsl -e sh -c \"ss -tlnp 2>/dev/null | grep 8001 || echo 'port 8001 free'\")",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(curl -s \"http://localhost:5173/src/App.jsx\")",
+      "Bash(powershell -Command 'Get-CimInstance Win32_Process -Filter \"Name='\\\\''node.exe'\\\\''\" | Where-Object { $_.CommandLine -match '\\\\''vite|MathSolution|frontend'\\\\'' } | Select-Object ProcessId,CommandLine | Format-List')",
+      "Bash(wsl -d docker-desktop -e sh -c \"ps aux 2>/dev/null | grep -i vite | grep -v grep\")",
+      "Bash(docker restart *)",
+      "Bash(git -C \".claude/worktrees/agent-a61efe22\" log --oneline -5)",
+      "Bash(git -C \".claude/worktrees/agent-a61efe22\" show --stat 671655c)"
     ]
   },
   "hooks": {
