@@ -1,0 +1,748 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "Auto-generated JSON Schema for SVG Library Catalog (Task #4). Source: backend/models/svg_part.py. Regenerate via: python -c \"from backend.models.svg_part import Catalog; import json; print(json.dumps(Catalog.model_json_schema(), ensure_ascii=False, indent=2))\" > backend/data/svg_library/catalog_schema.json",
+  "_source": "backend/models/svg_part.py",
+  "_task": "Task #4 — SVG 라이브러리 카탈로그 스키마",
+  "definitions": {
+    "Catalog": {
+      "$defs": {
+        "AiDraft": {
+          "description": "Gemini가 제시한 초벌 라벨링 결과 (교사 검증 전).",
+          "properties": {
+            "name": {
+              "default": "",
+              "title": "Name",
+              "type": "string"
+            },
+            "category": {
+              "default": "",
+              "title": "Category",
+              "type": "string"
+            },
+            "subcategory": {
+              "default": "",
+              "title": "Subcategory",
+              "type": "string"
+            },
+            "tags": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Tags",
+              "type": "array"
+            },
+            "variable_params": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ParamDef"
+              },
+              "title": "Variable Params",
+              "type": "array"
+            },
+            "confidence": {
+              "default": 0.0,
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "questions_for_teacher": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Questions For Teacher",
+              "type": "array"
+            },
+            "gemini_raw": {
+              "default": "",
+              "description": "Gemini 원본 응답 (디버그용)",
+              "title": "Gemini Raw",
+              "type": "string"
+            }
+          },
+          "title": "AiDraft",
+          "type": "object"
+        },
+        "Bbox": {
+          "description": "SVG 부품의 바운딩 박스 (viewBox 기준).",
+          "properties": {
+            "x": {
+              "description": "좌상단 x",
+              "title": "X",
+              "type": "number"
+            },
+            "y": {
+              "description": "좌상단 y",
+              "title": "Y",
+              "type": "number"
+            },
+            "width": {
+              "description": "너비",
+              "title": "Width",
+              "type": "number"
+            },
+            "height": {
+              "description": "높이",
+              "title": "Height",
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "title": "Bbox",
+          "type": "object"
+        },
+        "ParamDef": {
+          "description": "부품의 변수화 가능한 파라미터 정의.",
+          "properties": {
+            "name": {
+              "description": "파라미터 이름 (예: 'radius', 'cx')",
+              "title": "Name",
+              "type": "string"
+            },
+            "type": {
+              "description": "값 타입",
+              "enum": [
+                "number",
+                "position",
+                "color",
+                "boolean"
+              ],
+              "title": "Type",
+              "type": "string"
+            },
+            "default": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ],
+              "description": "기본값",
+              "title": "Default"
+            },
+            "description": {
+              "default": "",
+              "description": "교사가 읽을 설명",
+              "title": "Description",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "default"
+          ],
+          "title": "ParamDef",
+          "type": "object"
+        },
+        "SvgPart": {
+          "description": "개별 SVG 부품 메타데이터.",
+          "properties": {
+            "id": {
+              "description": "부품 ID (예: '4-001')",
+              "title": "Id",
+              "type": "string"
+            },
+            "filename": {
+              "description": "카탈로그 루트 기준 상대 경로 (parts/...)",
+              "title": "Filename",
+              "type": "string"
+            },
+            "name": {
+              "default": "",
+              "title": "Name",
+              "type": "string"
+            },
+            "category": {
+              "default": "",
+              "title": "Category",
+              "type": "string"
+            },
+            "subcategory": {
+              "default": "",
+              "title": "Subcategory",
+              "type": "string"
+            },
+            "tags": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Tags",
+              "type": "array"
+            },
+            "variable_params": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ParamDef"
+              },
+              "title": "Variable Params",
+              "type": "array"
+            },
+            "ai_draft": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/AiDraft"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "verified_by_teacher": {
+              "default": false,
+              "title": "Verified By Teacher",
+              "type": "boolean"
+            },
+            "bbox": {
+              "$ref": "#/$defs/Bbox"
+            },
+            "path_count": {
+              "default": 0,
+              "description": "포함된 <path> 개수",
+              "minimum": 0,
+              "title": "Path Count",
+              "type": "integer"
+            },
+            "created_at": {
+              "format": "date-time",
+              "title": "Created At",
+              "type": "string"
+            },
+            "updated_at": {
+              "format": "date-time",
+              "title": "Updated At",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "filename",
+            "bbox"
+          ],
+          "title": "SvgPart",
+          "type": "object"
+        }
+      },
+      "description": "카탈로그 전체 — catalog.json 의 최상위 스키마.",
+      "properties": {
+        "version": {
+          "default": "1.0",
+          "title": "Version",
+          "type": "string"
+        },
+        "total_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total Count",
+          "type": "integer"
+        },
+        "parts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SvgPart"
+          },
+          "title": "Parts",
+          "type": "array"
+        }
+      },
+      "title": "Catalog",
+      "type": "object"
+    },
+    "SvgPart": {
+      "$defs": {
+        "AiDraft": {
+          "description": "Gemini가 제시한 초벌 라벨링 결과 (교사 검증 전).",
+          "properties": {
+            "name": {
+              "default": "",
+              "title": "Name",
+              "type": "string"
+            },
+            "category": {
+              "default": "",
+              "title": "Category",
+              "type": "string"
+            },
+            "subcategory": {
+              "default": "",
+              "title": "Subcategory",
+              "type": "string"
+            },
+            "tags": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Tags",
+              "type": "array"
+            },
+            "variable_params": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/ParamDef"
+              },
+              "title": "Variable Params",
+              "type": "array"
+            },
+            "confidence": {
+              "default": 0.0,
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Confidence",
+              "type": "number"
+            },
+            "questions_for_teacher": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "title": "Questions For Teacher",
+              "type": "array"
+            },
+            "gemini_raw": {
+              "default": "",
+              "description": "Gemini 원본 응답 (디버그용)",
+              "title": "Gemini Raw",
+              "type": "string"
+            }
+          },
+          "title": "AiDraft",
+          "type": "object"
+        },
+        "Bbox": {
+          "description": "SVG 부품의 바운딩 박스 (viewBox 기준).",
+          "properties": {
+            "x": {
+              "description": "좌상단 x",
+              "title": "X",
+              "type": "number"
+            },
+            "y": {
+              "description": "좌상단 y",
+              "title": "Y",
+              "type": "number"
+            },
+            "width": {
+              "description": "너비",
+              "title": "Width",
+              "type": "number"
+            },
+            "height": {
+              "description": "높이",
+              "title": "Height",
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "title": "Bbox",
+          "type": "object"
+        },
+        "ParamDef": {
+          "description": "부품의 변수화 가능한 파라미터 정의.",
+          "properties": {
+            "name": {
+              "description": "파라미터 이름 (예: 'radius', 'cx')",
+              "title": "Name",
+              "type": "string"
+            },
+            "type": {
+              "description": "값 타입",
+              "enum": [
+                "number",
+                "position",
+                "color",
+                "boolean"
+              ],
+              "title": "Type",
+              "type": "string"
+            },
+            "default": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ],
+              "description": "기본값",
+              "title": "Default"
+            },
+            "description": {
+              "default": "",
+              "description": "교사가 읽을 설명",
+              "title": "Description",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "default"
+          ],
+          "title": "ParamDef",
+          "type": "object"
+        }
+      },
+      "description": "개별 SVG 부품 메타데이터.",
+      "properties": {
+        "id": {
+          "description": "부품 ID (예: '4-001')",
+          "title": "Id",
+          "type": "string"
+        },
+        "filename": {
+          "description": "카탈로그 루트 기준 상대 경로 (parts/...)",
+          "title": "Filename",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "category": {
+          "default": "",
+          "title": "Category",
+          "type": "string"
+        },
+        "subcategory": {
+          "default": "",
+          "title": "Subcategory",
+          "type": "string"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "variable_params": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ParamDef"
+          },
+          "title": "Variable Params",
+          "type": "array"
+        },
+        "ai_draft": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AiDraft"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "verified_by_teacher": {
+          "default": false,
+          "title": "Verified By Teacher",
+          "type": "boolean"
+        },
+        "bbox": {
+          "$ref": "#/$defs/Bbox"
+        },
+        "path_count": {
+          "default": 0,
+          "description": "포함된 <path> 개수",
+          "minimum": 0,
+          "title": "Path Count",
+          "type": "integer"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "filename",
+        "bbox"
+      ],
+      "title": "SvgPart",
+      "type": "object"
+    },
+    "Progress": {
+      "description": "라벨링 진행 상태 — progress.json 의 최상위 스키마.\n\nscope:\n    - 'trial' : 시범 라벨링 (소수 부품) — 갈량 피드백 중 #4 반영\n    - 'full'  : 전체 라벨링",
+      "properties": {
+        "scope": {
+          "default": "trial",
+          "enum": [
+            "trial",
+            "full"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "total": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "labeled": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Labeled",
+          "type": "integer"
+        },
+        "skipped": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Skipped",
+          "type": "integer"
+        },
+        "in_progress_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "In Progress Id"
+        }
+      },
+      "title": "Progress",
+      "type": "object"
+    },
+    "ParamDef": {
+      "description": "부품의 변수화 가능한 파라미터 정의.",
+      "properties": {
+        "name": {
+          "description": "파라미터 이름 (예: 'radius', 'cx')",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "description": "값 타입",
+          "enum": [
+            "number",
+            "position",
+            "color",
+            "boolean"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "기본값",
+          "title": "Default"
+        },
+        "description": {
+          "default": "",
+          "description": "교사가 읽을 설명",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "default"
+      ],
+      "title": "ParamDef",
+      "type": "object"
+    },
+    "AiDraft": {
+      "$defs": {
+        "ParamDef": {
+          "description": "부품의 변수화 가능한 파라미터 정의.",
+          "properties": {
+            "name": {
+              "description": "파라미터 이름 (예: 'radius', 'cx')",
+              "title": "Name",
+              "type": "string"
+            },
+            "type": {
+              "description": "값 타입",
+              "enum": [
+                "number",
+                "position",
+                "color",
+                "boolean"
+              ],
+              "title": "Type",
+              "type": "string"
+            },
+            "default": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "boolean"
+                }
+              ],
+              "description": "기본값",
+              "title": "Default"
+            },
+            "description": {
+              "default": "",
+              "description": "교사가 읽을 설명",
+              "title": "Description",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "type",
+            "default"
+          ],
+          "title": "ParamDef",
+          "type": "object"
+        }
+      },
+      "description": "Gemini가 제시한 초벌 라벨링 결과 (교사 검증 전).",
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "category": {
+          "default": "",
+          "title": "Category",
+          "type": "string"
+        },
+        "subcategory": {
+          "default": "",
+          "title": "Subcategory",
+          "type": "string"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "variable_params": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ParamDef"
+          },
+          "title": "Variable Params",
+          "type": "array"
+        },
+        "confidence": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "questions_for_teacher": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Questions For Teacher",
+          "type": "array"
+        },
+        "gemini_raw": {
+          "default": "",
+          "description": "Gemini 원본 응답 (디버그용)",
+          "title": "Gemini Raw",
+          "type": "string"
+        }
+      },
+      "title": "AiDraft",
+      "type": "object"
+    },
+    "Bbox": {
+      "description": "SVG 부품의 바운딩 박스 (viewBox 기준).",
+      "properties": {
+        "x": {
+          "description": "좌상단 x",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "좌상단 y",
+          "title": "Y",
+          "type": "number"
+        },
+        "width": {
+          "description": "너비",
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "description": "높이",
+          "title": "Height",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "Bbox",
+      "type": "object"
+    }
+  }
+}
