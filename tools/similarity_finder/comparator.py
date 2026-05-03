@@ -10,23 +10,50 @@ import anthropic
 
 
 _SYSTEM_PROMPT_PATH = Path(__file__).parent / "prompt.txt"
+_LOCAL_ENV_PATH = Path(__file__).resolve().parent / ".env"
 _BACKEND_ENV_PATH = Path(__file__).resolve().parent.parent.parent / "backend" / ".env"
+
+# 모델별 단가 (USD per 1M tokens, 2026-04 기준)
+# cache_write = 1.25x input, cache_read = 0.1x input
+_PRICING = {
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00,
+                          "cache_write": 3.75, "cache_read": 0.30},
+    "claude-opus-4-7":   {"input": 15.00, "output": 75.00,
+                          "cache_write": 18.75, "cache_read": 1.50},
+}
+_USD_TO_KRW = 1380  # 근사치 (표시용)
 
 
 def _load_system_prompt() -> str:
     return _SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 
 
+def _read_key_from_env_file(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line.startswith("ANTHROPIC_API_KEY="):
+            return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return None
+
+
 def _load_api_key() -> str:
+    # 우선순위: 유사문항 전용 .env → 환경변수 → backend/.env
+    key = _read_key_from_env_file(_LOCAL_ENV_PATH)
+    if key:
+        return key
     key = os.environ.get("ANTHROPIC_API_KEY")
     if key:
         return key
-    if _BACKEND_ENV_PATH.exists():
-        for line in _BACKEND_ENV_PATH.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line.startswith("ANTHROPIC_API_KEY="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
-    raise RuntimeError("ANTHROPIC_API_KEY가 backend/.env 또는 환경변수에 없습니다.")
+    key = _read_key_from_env_file(_BACKEND_ENV_PATH)
+    if key:
+        return key
+    raise RuntimeError(
+        f"ANTHROPIC_API_KEY를 찾지 못했습니다.\n"
+        f"{_LOCAL_ENV_PATH} 파일을 만들고 다음을 입력하세요:\n"
+        f"ANTHROPIC_API_KEY=sk-ant-...여기에-키-붙여넣기..."
+    )
 
 
 def _load_client():
@@ -57,19 +84,29 @@ def compare(
     chunks = chunk_problems(problems, chunk_size=chunk_size)
 
     chunk_results = []
+    usage_totals = {"input_tokens": 0, "output_tokens": 0,
+                    "cache_write": 0, "cache_read": 0}
     for idx, chunk in enumerate(chunks, 1):
         if progress_callback:
             progress_callback(f"Claude 호출 중 ({idx}/{len(chunks)})…")
 
         user_message = build_user_message(original, chunk)
-        raw_text = _call_claude(client, system, user_message, model)
+        raw_text, usage = _call_claude(client, system, user_message, model)
         chunk_results.append(parse_response(raw_text))
+        for k in usage_totals:
+            usage_totals[k] += usage.get(k, 0)
 
-    return merge_results(chunk_results)
+    merged = merge_results(chunk_results)
+    merged["_meta"] = {
+        "model": model,
+        "usage": usage_totals,
+        "cost": compute_cost(model, usage_totals),
+    }
+    return merged
 
 
-def _call_claude(client, system: str, user: str, model: str, retry: bool = True) -> str:
-    """Claude 호출 + JSON 파싱 실패 시 1회 재시도."""
+def _call_claude(client, system: str, user: str, model: str, retry: bool = True):
+    """Claude 호출 + JSON 파싱 실패 시 1회 재시도. (text, usage_dict) 반환."""
     try:
         response = client.messages.create(
             model=model,
@@ -77,11 +114,32 @@ def _call_claude(client, system: str, user: str, model: str, retry: bool = True)
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user}],
         )
-        return response.content[0].text
+        u = response.usage
+        usage = {
+            "input_tokens": getattr(u, "input_tokens", 0) or 0,
+            "output_tokens": getattr(u, "output_tokens", 0) or 0,
+            "cache_write": getattr(u, "cache_creation_input_tokens", 0) or 0,
+            "cache_read": getattr(u, "cache_read_input_tokens", 0) or 0,
+        }
+        return response.content[0].text, usage
     except Exception:
         if retry:
             return _call_claude(client, system, user, model, retry=False)
         raise
+
+
+def compute_cost(model: str, usage: dict) -> dict:
+    """usage 토큰 수로부터 USD/KRW 비용 계산. 알 수 없는 모델이면 0 반환."""
+    p = _PRICING.get(model)
+    if not p:
+        return {"usd": 0.0, "krw": 0}
+    usd = (
+        usage.get("input_tokens", 0) * p["input"]
+        + usage.get("output_tokens", 0) * p["output"]
+        + usage.get("cache_write", 0) * p["cache_write"]
+        + usage.get("cache_read", 0) * p["cache_read"]
+    ) / 1_000_000
+    return {"usd": usd, "krw": int(round(usd * _USD_TO_KRW))}
 
 
 def parse_response(raw: str) -> dict:
