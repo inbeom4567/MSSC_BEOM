@@ -275,7 +275,7 @@ class ClaudeService:
         )
         return message.content[0].text, _make_usage_info(message, model_id)
 
-    async def generate_variant(self, images: list[dict], variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "", grade: str = "none") -> dict:
+    async def generate_variant(self, images: list[dict], variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "", grade: str = "none", engine: str = "png") -> dict:
         """유사문항 생성 + 풀이"""
         content = self._make_image_content(images)
         model_id = self._get_model(model)
@@ -304,12 +304,12 @@ class ClaudeService:
 
         # 2차 검증 (계산 재검산 + 형식 정리)
         cleaned_text, usage2 = await self._cleanup_output(raw_text, model_id)
-        processed_text, graphs = process_graphs_in_text(cleaned_text)
+        processed_text, graphs = process_graphs_in_text(cleaned_text, engine=engine)
 
         total_usage = _merge_usage(usage1, usage2)
         return {"text": processed_text, "graphs": graphs, "usage": total_usage}
 
-    async def solve_variant(self, images: list[dict], model: str = "sonnet", custom_prompt: str = "", grade: str = "none") -> dict:
+    async def solve_variant(self, images: list[dict], model: str = "sonnet", custom_prompt: str = "", grade: str = "none", engine: str = "png") -> dict:
         """변형문항 풀이 생성"""
         content = self._make_image_content(images)
         model_id = self._get_model(model)
@@ -338,7 +338,7 @@ class ClaudeService:
 
         # 2차 검증 (계산 재검산 + 정답 확인)
         verified_text, usage2 = await self._verify_solve_output(raw_text, model_id)
-        processed_text, graphs = process_graphs_in_text(verified_text)
+        processed_text, graphs = process_graphs_in_text(verified_text, engine=engine)
 
         total_usage = _merge_usage(usage1, usage2)
         return {
@@ -347,7 +347,7 @@ class ClaudeService:
             "usage": total_usage,
         }
 
-    async def generate_variant_from_text(self, text_content: str, variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "", grade: str = "none") -> dict:
+    async def generate_variant_from_text(self, text_content: str, variant_type: str, difficulty: str, model: str = "sonnet", custom_prompt: str = "", grade: str = "none", engine: str = "png") -> dict:
         """HWPX에서 추출한 텍스트로 유사문항 생성"""
         model_id = self._get_model(model)
 
@@ -374,12 +374,12 @@ class ClaudeService:
 
         # 2차 검증
         cleaned_text, usage2 = await self._cleanup_output(raw_text, model_id)
-        processed_text, graphs = process_graphs_in_text(cleaned_text)
+        processed_text, graphs = process_graphs_in_text(cleaned_text, engine=engine)
 
         total_usage = _merge_usage(usage1, usage2)
         return {"text": processed_text, "graphs": graphs, "usage": total_usage}
 
-    async def solve_variant_from_text(self, text_content: str, model: str = "sonnet", grade: str = "none") -> dict:
+    async def solve_variant_from_text(self, text_content: str, model: str = "sonnet", grade: str = "none", engine: str = "png") -> dict:
         """HWPX에서 추출한 텍스트로 변형문항 해설 작성"""
         model_id = self._get_model(model)
 
@@ -403,7 +403,7 @@ class ClaudeService:
 
         # 2차 검증
         verified_text, usage2 = await self._verify_solve_output(raw_text, model_id)
-        processed_text, graphs = process_graphs_in_text(verified_text)
+        processed_text, graphs = process_graphs_in_text(verified_text, engine=engine)
 
         total_usage = _merge_usage(usage1, usage2)
         return {
@@ -412,7 +412,7 @@ class ClaudeService:
             "usage": total_usage,
         }
 
-    async def refine(self, original_result: str, instruction: str, model: str = "sonnet") -> dict:
+    async def refine(self, original_result: str, instruction: str, model: str = "sonnet", engine: str = "png") -> dict:
         """생성된 결과를 수정"""
         model_id = self._get_model(model)
 
@@ -424,14 +424,14 @@ class ClaudeService:
                 {"role": "user", "content": f"다음 지시에 따라 위 문제와 풀이를 수정해주세요:\n\n{instruction}\n\n수정된 전체 결과를 다시 출력해주세요. 기존 출력 형식(-유사문항-, -풀이-)을 유지하세요."},
             ],
         )
-        processed_text, graphs = process_graphs_in_text(text)
+        processed_text, graphs = process_graphs_in_text(text, engine=engine)
         return {
             "text": processed_text,
             "graphs": graphs,
             "usage": usage,
         }
 
-    async def process_scan(self, ocr_data: dict, mode: str, variant_count: int, model: str, grade: str, output_mode: str = "variant") -> dict:
+    async def process_scan(self, ocr_data: dict, mode: str, variant_count: int, model: str, grade: str, output_mode: str = "variant", engine: str = "png") -> dict:
         """스캔본 처리: LaTeX OCR → HWP 변환 + 해설 작성(필요시) + 유사문항 생성.
         output_mode: "variant" | "type_only" | "type_with_solution"
 
@@ -548,7 +548,7 @@ class ClaudeService:
 
         # 검증 패스
         cleaned_text, usage2 = await self._cleanup_scan_output(raw_text, model_id, variant_count)
-        processed_text, graphs = process_graphs_in_text(cleaned_text)
+        processed_text, graphs = process_graphs_in_text(cleaned_text, engine=engine)
 
         total_usage = _merge_usage(usage1, usage2)
         return {

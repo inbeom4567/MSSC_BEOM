@@ -1,5 +1,5 @@
 import logging
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import base64
@@ -15,6 +15,9 @@ from services.gemini_service import (
     ocr_scan_general, ocr_scan_student_paper,
     detect_problem_bboxes,
 )
+from services.font_service import register_fonts
+from api.fonts import router as fonts_router
+from api.svg_library import router as svg_library_router
 import asyncio
 import fitz  # pymupdf
 from PIL import Image
@@ -106,6 +109,20 @@ app.add_middleware(
 
 claude_service = ClaudeService()
 
+# 폰트 라우터 등록 (GET /api/fonts/list, GET /api/fonts/{filename})
+app.include_router(fonts_router)
+app.include_router(svg_library_router)
+
+
+@app.on_event("startup")
+async def _startup_register_fonts():
+    """서버 시작 시 backend/data/fonts/ 폰트를 Matplotlib에 등록."""
+    try:
+        registered = register_fonts()
+        logger.info(f"폰트 파이프라인 초기화 완료: {len(registered)}개 family 등록 ({registered})")
+    except Exception as e:
+        logger.error(f"폰트 파이프라인 초기화 실패: {e}")
+
 
 def _load_version_info() -> dict:
     root = Path(__file__).resolve().parent.parent
@@ -184,6 +201,7 @@ class ScanCropRequest(BaseModel):
     model: str = "sonnet"
     grade: str = "none"
     is_student_paper: bool = False
+    engine: str = "png"  # "png" (Matplotlib STIX) | "svg" (graph_builder HyhwpEQ)
 
 
 @app.get("/api/system-info")
@@ -254,12 +272,13 @@ async def generate_variant(
     model: str = "sonnet",
     custom_prompt: str = "",
     grade: str = "none",
+    engine: str = "png",
 ):
-    logger.info(f"유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}, grade={grade}, custom={custom_prompt[:30] if custom_prompt else 'none'}")
+    logger.info(f"유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}, grade={grade}, engine={engine}")
     images = _parse_files(await _read_files(files))
 
     try:
-        data = await claude_service.generate_variant(images, variant_type, difficulty, model, custom_prompt, grade)
+        data = await claude_service.generate_variant(images, variant_type, difficulty, model, custom_prompt, grade, engine=engine)
         logger.info(f"유사문항 생성 완료: {data['usage']['total_tokens']} tokens")
 
         entry_id = history_service.save_history({
@@ -279,12 +298,12 @@ async def generate_variant(
 
 
 @app.post("/api/solve-variant")
-async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonnet", grade: str = "none", custom_prompt: str = ""):
-    logger.info(f"변형문항 풀이 요청: model={model}")
+async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonnet", grade: str = "none", custom_prompt: str = "", engine: str = "png"):
+    logger.info(f"변형문항 풀이 요청: model={model}, engine={engine}")
     images = _parse_files(await _read_files(files))
 
     try:
-        data = await claude_service.solve_variant(images, model, custom_prompt, grade)
+        data = await claude_service.solve_variant(images, model, custom_prompt, grade, engine=engine)
         logger.info(f"변형문항 풀이 완료: {data['usage']['total_tokens']} tokens")
 
         entry_id = history_service.save_history({
@@ -301,12 +320,12 @@ async def solve_variant(files: List[UploadFile] = File(...), model: str = "sonne
 
 
 @app.post("/api/refine")
-async def refine_result(req: RefineRequest):
-    """생성된 결과를 수정 요청"""
-    logger.info(f"수정 요청: {req.instruction[:50]}...")
+async def refine_result(req: RefineRequest, engine: str = "png"):
+    """생성된 결과를 수정 요청. ?engine=svg 로 SVG 그래프 모드 활성."""
+    logger.info(f"수정 요청: {req.instruction[:50]}... (engine={engine})")
 
     try:
-        data = await claude_service.refine(req.original_result, req.instruction, req.model)
+        data = await claude_service.refine(req.original_result, req.instruction, req.model, engine=engine)
         logger.info(f"수정 완료: {data['usage']['total_tokens']} tokens")
 
         entry_id = history_service.save_history({
@@ -380,20 +399,21 @@ async def hwpx_generate(
     model: str = "sonnet",
     custom_prompt: str = "",
     grade: str = "none",
+    engine: str = "png",
 ):
-    """HWPX 파일로 유사문항 생성"""
-    logger.info(f"HWPX 유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}")
+    """HWPX 파일로 유사문항 생성. engine=svg 로 graph_builder/HyhwpEQ 모드 활성."""
+    logger.info(f"HWPX 유사문항 생성: type={variant_type}, difficulty={difficulty}, model={model}, engine={engine}")
 
     try:
         file_bytes = await file.read()
         text_content = read_hwpx(file_bytes)
         logger.info(f"HWPX 파싱 완료: {len(text_content)}자")
 
-        data = await claude_service.generate_variant_from_text(text_content, variant_type, difficulty, model, custom_prompt, grade)
+        data = await claude_service.generate_variant_from_text(text_content, variant_type, difficulty, model, custom_prompt, grade, engine=engine)
         logger.info(f"HWPX 유사문항 생성 완료: {data['usage']['total_tokens']} tokens")
 
-        # HWPX 출력 파일 생성
-        hwpx_bytes = create_hwpx(data["text"], file_bytes)
+        # HWPX 출력 파일 생성 (그래프 PNG 들이 있으면 [GRAPH:N] 자리에 박힘)
+        hwpx_bytes = create_hwpx(data["text"], file_bytes, graphs=data.get("graphs", []))
 
         entry_id = history_service.save_history({
             "type": "hwpx_generate",
@@ -422,19 +442,20 @@ async def hwpx_solve(
     file: UploadFile = File(...),
     model: str = "sonnet",
     grade: str = "none",
+    engine: str = "png",
 ):
     """HWPX 파일로 변형문항 해설 작성 (문제+해설+유사문제 포함)"""
-    logger.info(f"HWPX 변형문항 해설: model={model}")
+    logger.info(f"HWPX 변형문항 해설: model={model}, engine={engine}")
 
     try:
         file_bytes = await file.read()
         text_content = read_hwpx(file_bytes)
         logger.info(f"HWPX 파싱 완료: {len(text_content)}자")
 
-        data = await claude_service.solve_variant_from_text(text_content, model, grade)
+        data = await claude_service.solve_variant_from_text(text_content, model, grade, engine=engine)
         logger.info(f"HWPX 변형문항 해설 완료: {data['usage']['total_tokens']} tokens")
 
-        hwpx_bytes = create_hwpx(data["text"], file_bytes)
+        hwpx_bytes = create_hwpx(data["text"], file_bytes, graphs=data.get("graphs", []))
 
         entry_id = history_service.save_history({
             "type": "hwpx_solve",
@@ -464,9 +485,10 @@ async def hwpx_batch(
     custom_prompt: str = "",
     selected_numbers: str = "",  # "1,2,3" 또는 "" (전체)
     grade: str = "none",
+    engine: str = "png",
 ):
     """HWPX 파일에서 선택된 문제들의 유사문항 생성"""
-    logger.info(f"HWPX 일괄 처리: type={variant_type}, difficulty={difficulty}, model={model}, selected={selected_numbers}")
+    logger.info(f"HWPX 일괄 처리: type={variant_type}, difficulty={difficulty}, model={model}, selected={selected_numbers}, engine={engine}")
 
     try:
         file_bytes = await file.read()
@@ -486,7 +508,7 @@ async def hwpx_batch(
         logger.info(f"  {len(problems)}개 문제 병렬 처리 시작...")
         tasks = [
             claude_service.generate_variant_from_text(
-                prob["text"], variant_type, difficulty, model, custom_prompt, grade
+                prob["text"], variant_type, difficulty, model, custom_prompt, grade, engine=engine
             )
             for prob in problems
         ]
@@ -506,12 +528,23 @@ async def hwpx_batch(
             total_usage["cost_krw"] += data["usage"]["cost_krw"]
             total_usage["model"] = data["usage"]["model"]
 
-        # 결과를 하나의 텍스트로 합침
+        # 결과를 하나의 텍스트로 합침. 각 문제의 [GRAPH:N] 인덱스를 전체 graphs
+        # 리스트의 인덱스로 shift 해서 충돌 없이 BinData/graph{N}.png 와 매칭.
+        import re as _re_g
         combined_text = ""
+        combined_graphs: list[str] = []
         for r in results:
-            combined_text += f"-{r['number']}번-\n{r['result']}\n\n"
+            base = len(combined_graphs)
+            r_graphs = r.get("graphs") or []
+            text_shifted = _re_g.sub(
+                r'\[GRAPH:(\d+)\]',
+                lambda m, b=base: f'[GRAPH:{int(m.group(1)) + b}]',
+                r['result'],
+            )
+            combined_text += f"-{r['number']}번-\n{text_shifted}\n\n"
+            combined_graphs.extend(r_graphs)
 
-        hwpx_bytes = create_hwpx(combined_text.strip(), file_bytes)
+        hwpx_bytes = create_hwpx(combined_text.strip(), file_bytes, graphs=combined_graphs)
 
         entry_id = history_service.save_history({
             "type": "hwpx_batch",
@@ -603,9 +636,10 @@ async def scan_process(
     model: str = "sonnet",
     grade: str = "none",
     page_range: str = "",           # 예) "1-3", "2", "" (전체)
+    engine: str = "png",
 ):
     """스캔본 처리: OCR → HWP 변환 (+ 해설/유사문항 output_mode에 따라)"""
-    logger.info(f"스캔 처리: mode={mode}, output_mode={output_mode}, variants={variant_count}, model={model}")
+    logger.info(f"스캔 처리: mode={mode}, output_mode={output_mode}, variants={variant_count}, model={model}, engine={engine}")
 
     if not files:
         raise HTTPException(status_code=400, detail="이미지 또는 PDF를 업로드하세요.")
@@ -625,7 +659,7 @@ async def scan_process(
         logger.info(f"OCR 완료: has_solution={ocr_data.get('has_solution', False)}")
 
         # Claude 처리
-        result = await claude_service.process_scan(ocr_data, mode, variant_count, model, grade, output_mode)
+        result = await claude_service.process_scan(ocr_data, mode, variant_count, model, grade, output_mode, engine=engine)
         logger.info(f"스캔 처리 완료: {result['usage']['total_tokens']} tokens")
 
         entry_id = history_service.save_history({
@@ -684,7 +718,7 @@ async def scan_crop_process(req: ScanCropRequest):
                 result = await asyncio.wait_for(
                     claude_service.process_scan(
                         ocr_data, scan_mode, req.variant_count,
-                        req.model, req.grade, req.output_mode,
+                        req.model, req.grade, req.output_mode, engine=req.engine,
                     ),
                     timeout=300.0,
                 )
@@ -750,6 +784,7 @@ class ScanVariantRequest(BaseModel):
     model: str = "sonnet"
     grade: str = "none"
     output_mode: str = "variant"
+    engine: str = "png"  # "png" | "svg"
 
 
 @app.post("/api/scan-generate-variants")
@@ -759,7 +794,7 @@ async def scan_generate_variants(req: ScanVariantRequest):
     try:
         result = await claude_service.process_scan(
             req.ocr_data, req.scan_mode, req.variant_count, req.model, req.grade,
-            output_mode=req.output_mode,
+            output_mode=req.output_mode, engine=req.engine,
         )
         logger.info(f"스캔 유사문항 생성 완료: {result['usage']['total_tokens']} tokens")
 
@@ -860,3 +895,37 @@ def _parse_files(files: list) -> list:
             "media_type": f["content_type"],
         })
     return images
+
+
+# ── SVG 그래프 렌더 (graph_builder + standard_axes 기반, HyhwpEQ PUA) ─────
+# 2026-04-25 추가 — 디버깅·미리보기 전용. 검증 OK 후 hwpx 생성 라우트에
+# `engine="svg"` 옵션 통합 예정.
+@app.post("/api/graph-svg/render")
+async def graph_svg_render(payload: dict = Body(...)):
+    """Claude `-그래프-` 태그 본문을 SVG 문자열로 변환.
+
+    payload 형식 (둘 중 하나):
+      - {"spec": "함수: x**2 ...\\nx범위: ..."}                  ← 마커 없는 본문
+      - {"text": "...본문...\\n-그래프-\\n...\\n-그래프끝-..."}    ← 마커 포함
+
+    반환: image/svg+xml (raw SVG 문자열)
+    """
+    from services.graph_service import _parse, _render_svg, GRAPH_PATTERN
+
+    spec_text = payload.get('spec')
+    if not spec_text:
+        text = payload.get('text', '')
+        m = GRAPH_PATTERN.search(text)
+        if not m:
+            raise HTTPException(
+                status_code=400,
+                detail='-그래프- 블록 없음. spec 또는 text 필드를 채워주세요.',
+            )
+        spec_text = m.group(1)
+
+    try:
+        spec = _parse(spec_text)
+        svg = _render_svg(spec)
+        return Response(content=svg, media_type='image/svg+xml')
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
